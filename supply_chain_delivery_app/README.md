@@ -111,6 +111,9 @@ supply_chain_delivery_app/
     └── logic-workflow-fixes.ipynb
 ```
 
+### Github Repository
+`https://github.com/Aditi-Kulkarni-PA/supply-chain-capstone`
+
 ## Prerequisites
 
 - Python 3.11+
