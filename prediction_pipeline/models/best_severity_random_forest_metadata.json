@@ -1,0 +1,20 @@
+{
+  "model_type": "severity_classification",
+  "description": "Stage 2: Predicts delay severity (Short/Medium/Long) for delayed shipments",
+  "metrics": {
+    "best_params": {
+      "class_weight": "balanced_subsample",
+      "max_depth": 15,
+      "min_samples_leaf": 2,
+      "min_samples_split": 10,
+      "n_estimators": 100
+    },
+    "best_cv_f1_weighted": 0.6564306687733605,
+    "test_accuracy": 0.6369661266568483,
+    "severity_labels": {
+      "0": "Short (1-2h)",
+      "1": "Medium (3-5h)",
+      "2": "Long (6+h)"
+    }
+  }
+}

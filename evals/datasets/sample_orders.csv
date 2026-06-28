@@ -1,0 +1,51 @@
+delivery_id,delivery_partner,package_type,vehicle_type,delivery_mode,region,weather_condition,distance_km,package_weight_kg,delivery_time_hours,expected_time_hours,delayed,delivery_status,delivery_rating,delivery_cost
+966.0,shadowfax,cosmetics,bike,same day,west,rainy,4.7,6.31,1970-01-01 00:00:00.000000004,1970-01-01 00:00:00.000000008,no,,,142.43
+1904.0,ekart,pharmacy,ev van,standard,east,rainy,176.3,29.65,1970-01-01 00:00:00.000000009,1970-01-01 00:00:00.000000024,no,,,970.45
+20003.0,blue dart,fragile items,scooter,standard,north,cold,187.6,45.27,1970-01-01 00:00:00.000000008,1970-01-01 00:00:00.000000024,no,,,1073.81
+16407.0,xpressbees,automobile parts,scooter,two day,south,cold,198.9,21.21,1970-01-01 00:00:00.000000004,1970-01-01 00:00:00.000000016,no,,,1058.13
+16535.0,ecom express,electronics,truck,express,north,clear,278.4,27.69,1970-01-01 00:00:00.000000005,1970-01-01 00:00:00.000000007,no,,,1525.07
+20717.0,blue dart,clothing,bike,two day,west,cold,269.5,0.67,1970-01-01 00:00:00.000000007,1970-01-01 00:00:00.000000016,no,,,1349.51
+18932.0,ekart,clothing,scooter,two day,south,foggy,171.1,14.98,1970-01-01 00:00:00.000000007,1970-01-01 00:00:00.000000016,no,,,900.44
+22215.0,ekart,clothing,ev van,standard,central,rainy,170.0,4.52,1970-01-01 00:00:00.000000010,1970-01-01 00:00:00.000000024,no,,,863.56
+5154.0,xpressbees,pharmacy,van,standard,east,hot,245.7,17.74,1970-01-01 00:00:00.000000006,1970-01-01 00:00:00.000000024,no,,,1281.72
+3775.0,dhl,groceries,truck,express,east,stormy,247.7,29.77,1970-01-01 00:00:00.000000012,1970-01-01 00:00:00.000000006,yes,,,1377.81
+12530.0,fedex,groceries,van,two day,central,cold,242.8,21.61,1970-01-01 00:00:00.000000007,1970-01-01 00:00:00.000000016,no,,,1278.83
+8720.0,xpressbees,fragile items,ev van,same day,north,rainy,20.6,35.71,1970-01-01 00:00:00.000000005,1970-01-01 00:00:00.000000008,no,,,310.13
+14050.0,delhivery,fragile items,van,standard,west,hot,228.2,47.28,1970-01-01 00:00:00.000000012,1970-01-01 00:00:00.000000024,no,,,1282.84
+12809.0,blue dart,electronics,van,standard,west,cold,286.1,40.85,1970-01-01 00:00:00.000000006,1970-01-01 00:00:00.000000024,no,,,1553.05
+8841.0,ekart,clothing,van,express,east,stormy,250.3,31.07,1970-01-01 00:00:00.000000014,1970-01-01 00:00:00.000000007,yes,,,1394.71
+23006.0,fedex,clothing,bike,two day,east,clear,261.1,28.69,1970-01-01 00:00:00.000000006,1970-01-01 00:00:00.000000016,no,,,1391.57
+10792.0,dhl,automobile parts,bike,express,south,cold,167.8,13.86,1970-01-01 00:00:00.000000005,1970-01-01 00:00:00.000000005,no,,,930.58
+7305.0,ecom express,automobile parts,ev bike,express,north,hot,168.9,4.58,1970-01-01 00:00:00.000000008,1970-01-01 00:00:00.000000005,yes,,,908.24
+16562.0,fedex,cosmetics,bike,two day,north,hot,258.9,11.87,1970-01-01 00:00:00.000000006,1970-01-01 00:00:00.000000016,no,,,1330.11
+6834.0,shadowfax,fragile items,ev bike,standard,north,foggy,279.7,26.45,1970-01-01 00:00:00.000000007,1970-01-01 00:00:00.000000024,no,,,1477.85
+22144.0,blue dart,fragile items,truck,two day,west,stormy,106.3,41.84,1970-01-01 00:00:00.000000007,1970-01-01 00:00:00.000000016,no,,,657.02
+23052.0,amazon logistics,groceries,scooter,same day,east,rainy,165.4,43.19,1970-01-01 00:00:00.000000011,1970-01-01 00:00:00.000000008,yes,,,1056.57
+5108.0,ecom express,pharmacy,ev bike,two day,west,cold,266.2,26.91,1970-01-01 00:00:00.000000008,1970-01-01 00:00:00.000000016,no,,,1411.73
+9342.0,blue dart,cosmetics,truck,two day,north,rainy,148.6,45.81,1970-01-01 00:00:00.000000008,1970-01-01 00:00:00.000000016,no,,,880.43
+11779.0,ecom express,furniture,truck,same day,west,clear,77.6,3.09,1970-01-01 00:00:00.000000002,1970-01-01 00:00:00.000000008,no,,,497.27
+11681.0,ekart,electronics,scooter,same day,north,cold,30.9,41.99,1970-01-01 00:00:00.000000002,1970-01-01 00:00:00.000000008,no,,,380.47
+23679.0,xpressbees,automobile parts,van,express,east,stormy,275.8,33.47,1970-01-01 00:00:00.000000015,1970-01-01 00:00:00.000000007,yes,,,1529.41
+24186.0,ekart,pharmacy,van,same day,east,cold,140.2,20.88,1970-01-01 00:00:00.000000006,1970-01-01 00:00:00.000000008,no,,,863.64
+7826.0,amazon logistics,pharmacy,scooter,express,east,clear,175.5,10.5,1970-01-01 00:00:00.000000007,1970-01-01 00:00:00.000000005,yes,,,959.0
+8688.0,ekart,pharmacy,scooter,same day,south,cold,66.3,5.54,1970-01-01 00:00:00.000000003,1970-01-01 00:00:00.000000008,no,,,448.12
+817.0,delhivery,documents,ev bike,standard,central,clear,297.1,22.97,1970-01-01 00:00:00.000000005,1970-01-01 00:00:00.000000024,no,,,1564.91
+21724.0,xpressbees,automobile parts,van,same day,central,foggy,81.7,4.22,1970-01-01 00:00:00.000000006,1970-01-01 00:00:00.000000008,no,,,521.16
+15240.0,amazon logistics,clothing,truck,express,south,stormy,3.6,42.28,1970-01-01 00:00:00.000000005,1970-01-01 00:00:00.000000002,yes,,,192.34
+7543.0,dhl,clothing,ev van,two day,central,clear,252.4,36.51,1970-01-01 00:00:00.000000007,1970-01-01 00:00:00.000000016,no,,,1371.53
+14676.0,fedex,furniture,truck,two day,west,hot,190.2,0.67,1970-01-01 00:00:00.000000006,1970-01-01 00:00:00.000000016,no,,,952.47
+15469.0,delhivery,documents,truck,same day,south,hot,182.3,35.75,1970-01-01 00:00:00.000000005,1970-01-01 00:00:00.000000008,no,,,1118.75
+9329.0,dhl,cosmetics,ev van,same day,east,rainy,111.1,11.99,1970-01-01 00:00:00.000000004,1970-01-01 00:00:00.000000008,no,,,691.47
+21004.0,delhivery,electronics,ev van,same day,south,stormy,185.9,24.13,1970-01-01 00:00:00.000000010,1970-01-01 00:00:00.000000008,yes,,,1101.89
+13360.0,fedex,documents,van,same day,central,stormy,105.3,49.52,1970-01-01 00:00:00.000000005,1970-01-01 00:00:00.000000008,no,,,775.45
+9923.0,xpressbees,groceries,scooter,standard,south,cold,14.6,19.85,1970-01-01 00:00:00.000000002,1970-01-01 00:00:00.000000024,no,,,132.55
+22094.0,amazon logistics,clothing,van,standard,north,foggy,122.7,34.89,1970-01-01 00:00:00.000000009,1970-01-01 00:00:00.000000024,no,,,718.17
+19013.0,fedex,cosmetics,ev bike,standard,west,hot,217.5,28.02,1970-01-01 00:00:00.000000007,1970-01-01 00:00:00.000000024,no,,,1171.56
+7582.0,blue dart,groceries,ev bike,same day,west,hot,55.4,40.03,1970-01-01 00:00:00.000000003,1970-01-01 00:00:00.000000008,no,,,497.09
+5906.0,blue dart,fragile items,ev bike,same day,north,foggy,218.5,45.29,1970-01-01 00:00:00.000000008,1970-01-01 00:00:00.000000008,yes,,,1328.37
+21281.0,xpressbees,furniture,bike,two day,east,foggy,71.0,20.22,1970-01-01 00:00:00.000000004,1970-01-01 00:00:00.000000016,no,,,415.66
+16024.0,xpressbees,electronics,van,standard,south,foggy,94.6,4.62,1970-01-01 00:00:00.000000003,1970-01-01 00:00:00.000000024,no,,,486.86
+20734.0,amazon logistics,cosmetics,van,same day,south,hot,8.0,46.36,1970-01-01 00:00:00.000000001,1970-01-01 00:00:00.000000008,no,,,279.08
+8149.0,delhivery,electronics,van,express,north,clear,61.2,35.36,1970-01-01 00:00:00.000000001,1970-01-01 00:00:00.000000003,no,,,462.08
+6497.0,shadowfax,documents,van,standard,west,foggy,39.4,7.31,1970-01-01 00:00:00.000000005,1970-01-01 00:00:00.000000024,no,,,218.93
+24603.0,shadowfax,documents,truck,two day,west,rainy,102.6,2.69,1970-01-01 00:00:00.000000006,1970-01-01 00:00:00.000000016,no,,,521.07

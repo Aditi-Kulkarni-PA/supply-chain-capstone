@@ -1,0 +1,130 @@
+"""
+CLI runner for supply chain delivery evals.
+
+Usage:
+    uv run python evals/run_evals.py             # standard eval suite
+    uv run python evals/run_evals.py --ragas     # add RAGAS metrics
+    uv run python evals/run_evals.py --agent recommend  # single agent
+    uv run python evals/run_evals.py --help
+
+Writes a JSON report to evals/reports/<timestamp>.json.
+"""
+
+import argparse
+import json
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+EVALS_DIR  = Path(__file__).resolve().parent
+REPORTS_DIR = EVALS_DIR / "reports"
+
+_AGENT_FILES = {
+    "predict":   "test_eval_predict.py",
+    "diagnose":  "test_eval_diagnose.py",
+    "simulate":  "test_eval_simulate.py",
+    "recommend": "test_eval_recommend.py",
+    "email":     "test_eval_email.py",
+    "rag":       "test_eval_rag.py",
+    "master":    "test_eval_master.py",
+}
+
+
+def _build_pytest_args(agent: str | None, ragas: bool, extra: list[str]) -> list[str]:
+    base = [
+        "uv", "run", "pytest",
+        "--tb=short",
+        "-v",
+        "--json-report",
+        "--json-report-indent=2",
+    ]
+
+    if agent:
+        if agent not in _AGENT_FILES:
+            print(f"Unknown agent '{agent}'. Choose from: {', '.join(_AGENT_FILES)}")
+            sys.exit(1)
+        base.append(str(EVALS_DIR / _AGENT_FILES[agent]))
+    else:
+        base.append(str(EVALS_DIR))
+
+    # Include or exclude the ragas marker
+    if ragas:
+        pass  # run everything including ragas-marked tests
+    else:
+        base += ["-m", "not ragas"]
+
+    base += extra
+    return base
+
+
+def _run(args: list[str]) -> dict:
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    report_path = REPORTS_DIR / f"{datetime.now().strftime('%Y%m%dT%H%M%S')}.json"
+
+    cmd = args + [f"--json-report-file={report_path}"]
+    print(f"Running: {' '.join(cmd)}\n")
+
+    proc = subprocess.run(cmd, cwd=EVALS_DIR.parent)
+
+    if report_path.exists():
+        with report_path.open() as f:
+            report = json.load(f)
+        _print_summary(report, report_path)
+    else:
+        print(f"No JSON report written (pytest-json-report may not be installed).")
+        report = {}
+
+    return {"exit_code": proc.returncode, "report_path": str(report_path)}
+
+
+def _print_summary(report: dict, path: Path):
+    summary = report.get("summary", {})
+    total   = summary.get("total", 0)
+    passed  = summary.get("passed", 0)
+    failed  = summary.get("failed", 0)
+    skipped = summary.get("skipped", 0)
+    duration = report.get("duration", 0)
+
+    print("\n" + "=" * 60)
+    print(f"EVAL RESULTS  —  {path.name}")
+    print("=" * 60)
+    print(f"  Total:   {total}")
+    print(f"  Passed:  {passed}")
+    print(f"  Failed:  {failed}")
+    print(f"  Skipped: {skipped}")
+    print(f"  Duration: {duration:.1f}s")
+
+    if failed:
+        print("\nFailed tests:")
+        for test in report.get("tests", []):
+            if test.get("outcome") == "failed":
+                print(f"  FAIL  {test['nodeid']}")
+                longrepr = test.get("call", {}).get("longrepr", "")
+                if longrepr:
+                    for line in str(longrepr).splitlines()[-5:]:
+                        print(f"         {line}")
+
+    status = "PASS" if failed == 0 else "FAIL"
+    print(f"\nOverall: {status}")
+    print("=" * 60)
+    print(f"Full report: {path}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run supply chain delivery agent evals")
+    parser.add_argument("--agent", choices=list(_AGENT_FILES.keys()),
+                        help="Run evals for a single agent only")
+    parser.add_argument("--ragas", action="store_true",
+                        help="Include RAGAS metrics (gated, calls OpenAI)")
+    parser.add_argument("extra", nargs=argparse.REMAINDER,
+                        help="Extra args passed directly to pytest")
+
+    args = parser.parse_args()
+    pytest_args = _build_pytest_args(args.agent, args.ragas, args.extra)
+    result = _run(pytest_args)
+    sys.exit(result["exit_code"])
+
+
+if __name__ == "__main__":
+    main()

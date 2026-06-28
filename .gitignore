@@ -1,0 +1,86 @@
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Virtual Environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+ENV/
+.uv/
+
+# ── uv ────────────────────────────────────────────────────────────────────────
+# Keep uv.lock in version control (reproducible installs)
+# uv.lock
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── ML Model Artefacts ────────────────────────────────────────────────────────
+# .pkl models are checked in so evaluators can run the app without retraining
+# *.pkl
+# *.pickle
+# *.joblib
+*.h5
+*.pt
+*.pth
+*.ckpt
+
+# ── Database Files ────────────────────────────────────────────────────────────
+# SQLite db is checked in so evaluators can run agent tools without re-running ML pipeline
+# *.db
+# *.sqlite
+# *.sqlite3
+
+# ── Generated Output (runtime artefacts) ─────────────────────────────────────
+# Checked in for evaluation
+# supply_chain_delivery_app/output/
+# prediction_pipeline/db/
+# prediction_pipeline/data/*.csv
+
+# ── ChromaDB Vector Store ─────────────────────────────────────────────────────
+# Checked in so evaluators don't need to re-embed SLA corpus on first run
+# supply_chain_delivery_app/chroma_db/
+# supply_chain_delivery_app/vectorstore/
+# chroma_db/
+*.chroma/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+# *.log
+# logs/
+# *.out
+
+# ── OS / Editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+~$*
+
+# ── Testing & Coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ── Temporary / Scratch ───────────────────────────────────────────────────────
+tmp/
+temp/
+scratch/
+*.tmp
