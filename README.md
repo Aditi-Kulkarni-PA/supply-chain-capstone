@@ -133,7 +133,7 @@ Key responsibilities:
 
 ### Sub-System 2 — Supply Chain Delivery App (`supply_chain_delivery_app/`)
 
-A Gradio web application providing the user interface and multi-agent orchestration logic. Users interact through a conversational chat panel; the Master Orchestrator agent interprets intent, calls the appropriate specialist sub-agents in sequence, and populates five output tabs with structured results.
+A Gradio web application providing the user interface and multi-agent orchestration logic. Users interact through a conversational chat panel; the Master Orchestrator agent interprets intent, calls the appropriate specialist sub-agents in sequence, and populates five output tabs with structured results. Informational questions (e.g. “which region was worst today?”) are answered directly in chat from fresh existing results, without re-running the pipeline.
 
 Key responsibilities:
 - Render the Gradio UI (chat panel + 5 result tabs)
@@ -238,7 +238,7 @@ Taken together, the system enables logistics operations teams to query a convers
 | Simulate | `delay_simulation.md` | FastMCP `simulate` | What-if scenario translation and row enrichment |
 | Recommend | `recommendation.md` | `recommend_actions` (RAG) | SLA-grounded 3-category recommendations |
 | Email Alert | `email_alert.md` | `fetch_delayed_orders_for_email` | Severity-templated customer emails |
-| Format Summary | `format_summary.md` | agent-as-tool | Structured Markdown rendering per output type |
+| Format Summary | `format_summary.md` | agent-as-tool (defined; not currently called) | Replaced by deterministic Python formatting in `helpers/post_processing.py`; available for future use |
 | Fallback Advisor | `fallback_advisor.md` | WebSearchTool | Out-of-scope query handling |
 
 ---
@@ -377,7 +377,7 @@ Taken together, the system enables logistics operations teams to query a convers
     ├── delivery_chat_app.py            ← Gradio UI entry point
     ├── delivery_agents.py              ← Pydantic models + agent definitions
     ├── config/
-    │   ├── load_config.py             ← build_instruction() — assembles layered prompts
+    │   ├── load_config.py             ← get_instruction() — loads prompt .md files verbatim (master gets shared layers)
     │   └── prompts/
     │       ├── agents/                ← 7 agent-specific markdown prompts
     │       │   ├── master_expert.md
@@ -390,6 +390,7 @@ Taken together, the system enables logistics operations teams to query a convers
     │       └── shared/                ← 3 cross-cutting prompts
     │           ├── security_guardrails.md
     │           ├── chatbot_behavior.md
+    │           ├── field_glossary.md
     │           └── format_summary.md
     ├── tools/
     │   ├── rag_knowledge.py           ← ChromaDB + hybrid retrieval (cosine + keyword)
@@ -404,9 +405,7 @@ Taken together, the system enables logistics operations teams to query a convers
     ├── vectorstore/                   ← ChromaDB persistent store (gitignored)
     ├── input/                         ← Daily order CSVs for prediction
     ├── output/                        ← Generated predictions, emails, simulations (gitignored)
-    ├── log/                           ← Runtime application logs
-    └── notebooks/
-        ├── logic-workflow-fixes.ipynb   ← Source for agent workflow docs in docs/
+    └── log/                           ← Runtime application logs
 ```
 
 ---
@@ -416,7 +415,7 @@ Taken together, the system enables logistics operations teams to query a convers
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
-Prompt instructions are split across three composable files — `security_guardrails.md`, `chatbot_behavior.md`, and `master_expert.md` — assembled at runtime by `build_instruction()` in `supply_chain_delivery_app/config/load_config.py`; rather than hardcoded as a single monolithic string. This separation keeps each concern independently editable and testable: guardrail rules can be tightened without touching agent logic, persona and tone can be adjusted without risking security regressions, and domain expertise can be iterated on without re-reviewing the full prompt. The layered order (security first, always) enforces a clear precedence hierarchy that a single flat prompt cannot guarantee. The design evolved through 17 iterations across 7 agents, each driven by a specific failure mode observed during development.
+Prompt instructions are split across three composable files — `security_guardrails.md`, `chatbot_behavior.md`, and `master_expert.md` — assembled at runtime by `get_instruction()` in `supply_chain_delivery_app/config/load_config.py`; rather than hardcoded as a single monolithic string. This separation keeps each concern independently editable and testable: guardrail rules can be tightened without touching agent logic, persona and tone can be adjusted without risking security regressions, and domain expertise can be iterated on without re-reviewing the full prompt. The layered order (security first, always) enforces a clear precedence hierarchy that a single flat prompt cannot guarantee. The design evolved through 19 iterations across 7 agents, each driven by a specific failure mode observed during development or testing.
 
 ### Prompt Version History
 
@@ -439,6 +438,8 @@ Prompt instructions are split across three composable files — `security_guardr
 | 7.1 | Valid values list for filter/change parameters | Tool errors from invalid filter values | `delay_simulation.md` |
 | 7.2 | Row parity rule ("same number of rows as tool") | Partial enrichment (5-10 rows out of 50+) | `delay_simulation.md` |
 | 7.3 | Pydantic fields enforce concise comparative reason format | Free-form verbosity, inconsistent reason length | `delay_simulation.md` |
+| 8.1 | WYSIWYG loader — prompt files passed to agents verbatim; master's duplicated interaction rules replaced with a pointer to the shared behaviour layer | Sections outside Role/Goal/Backstory/Task silently dropped (predict agent saw 28% of its prompt); same rules fed to the master twice | All prompt files, `load_config.py` |
+| 8.2 | Testing-driven fixes: capped sample transcription (full results read from CSV on disk); synonym mapping to valid enums + tool-error passthrough; `chat_response` conversational contract + PLAN CONFIRMED tag; bold-values + plain-language summary rules | 241-row transcription collapsed to empty output; "severe weather" → invalid value reported as "ran, no changes"; questions forced into action plans + double confirmation; key numbers didn't stand out | `delay_simulation.md`, `master_expert.md`, `chatbot_behavior.md`, `predict_delivery_delays.md`, `diagnose_delay_patterns.md` |
 
 > Full iteration details, design rationale, and prompt examples: **[`docs/03-prompt-evolution-log.md`](docs/03-prompt-evolution-log.md)**
 
@@ -518,7 +519,7 @@ GPT-4.1-mini and GPT-5.1 were both evaluated before settling on the current two-
 
 **GPT-5.4 resolved both failure modes** — it reliably processes the full layered instruction stack, holds structured output contracts across long tool chains, and does not silently degrade when context grows. It is therefore used for every agent that reasons, decides, or produces typed outputs. 
 
-**GPT-4.1-mini is retained for two narrowly scoped roles** where its failure modes do not apply: the Format Summary agent, whose task is deterministic Markdown rendering of an already-validated structured object with small, predictable context; and the LLM-as-judge in evals, which scores outputs against a fixed rubric — pattern-matching over a defined schema rather than open-ended inference. Both model assignments are environment-variable controlled (OPENAI_MODEL / OPENAI_MODEL_MINI), so the split can be recalibrated without touching agent code.
+**GPT-4.1-mini is retained for two narrowly scoped roles** where its failure modes do not apply: the Format Summary agent (now replaced by deterministic Python formatting in `post_processing.py`, but still defined with this model assignment for future use), whose task was Markdown rendering of an already-validated structured object with small, predictable context; and the LLM-as-judge in evals, which scores outputs against a fixed rubric — pattern-matching over a defined schema rather than open-ended inference. Both model assignments are environment-variable controlled (OPENAI_MODEL / OPENAI_MODEL_MINI), so the split can be recalibrated without touching agent code.
 
 | Model | Failure Mode | Outcome |
 |---|---|---|
@@ -689,7 +690,7 @@ Structured agents are configured with `agent as a tool` using OpenAI Agent SDK.
 | 16 | [`docs/16-caching-design.md`](docs/16-caching-design.md) | Sidecar freshness detection (1h TTL), RAG retrieval cache (SHA-256 key, 200-entry eviction), ChromaDB rebuild detection |
 | 17 | [`docs/17-observability-logging.md`](docs/17-observability-logging.md) | Runtime logger, structured RAG events, audit sidecar files, output file inventory, agent tracing config |
 | 18 | [`docs/18-end-to-end-data-flow.md`](docs/18-end-to-end-data-flow.md) | End-to-end data flow from CSV input through ML inference, SQLite, agent orchestration to UI output |
-| 19 | [`docs/19-format-agent-design.md`](docs/19-format-agent-design.md) | Format Summary agent: Markdown rendering, 15-tuple yield pattern, structured output composition |
+| 19 | [`docs/19-format-agent-design.md`](docs/19-format-agent-design.md) | Format Summary agent (replaced by deterministic formatting in `post_processing.py`; kept available): original Markdown rendering design |
 | 20 | [`docs/20-executive-flow-diagrams.md`](docs/20-executive-flow-diagrams.md) | Executive-level flow diagrams for presentation and documentation |
 | 21 | [`docs/21-eval-flow-design.md`](docs/21-eval-flow-design.md) | Eval framework: 5-agent LLM-as-judge design, RAGAS integration, DB isolation, run commands |
 
@@ -896,13 +897,23 @@ All five agents were evaluated using a structured LLM-as-judge framework (GPT-5.
 **5/5 agents passed. All scores above threshold.**
 
 ```bash
-# Run the full eval suite (all 5 agents + RAGAS)
+# Full eval suite — 5 agent evals + RAG/RAGAS + human-baseline calibration.
+# RAGAS runs as part of the suite; no separate flag needed.
 uv run python evals/run_evals.py
 
-# Run a single agent eval
-uv run python evals/run_evals.py --agent recommend
+# Single agent: predict | diagnose | simulate | recommend | email | rag
+uv run python evals/run_evals.py --agent simulate
 
-# Report is written to evals/reports/eval_report_<timestamp>.md
+# Direct pytest equivalents
+uv run pytest evals/ -v                       # full suite
+uv run pytest evals/test_eval_predict.py -v   # single test file
+
+# Outputs per run (evals/reports/):
+#   eval_report_<ts>.md            — judge scores + reasoning per agent
+#   judge_scores_<ts>.json         — machine-readable scores for this run
+#   judge_scores_latest.json       — merged per agent across runs (feeds human baseline)
+#   human_baseline_report_<ts>.md  — written when the baseline tests run
+#   <ts>.json                      — raw pytest results
 ```
 
 Latest reports: **[`evals/reports/`](evals/reports/)**
@@ -984,13 +995,13 @@ Across the full pipeline, the system operates on a 1-hour freshness TTL: a logis
 
 **Multi-agent systems fail silently without explicit prerequisite contracts in the orchestrator prompt.** Early versions of the Master Orchestrator called `get_delay_diagnosis` before `predict_delivery_delays` had populated the `daily_*` SQLite tables — the tool returned empty data with no error, producing a diagnosis with no patterns. The fix was embedding dependency rules directly into the Master prompt (`diagnose requires predict to be fresh`) and using freshness sidecar files as machine-enforceable gates. Lesson: agent tool dependencies must be first-class prompt constraints, not assumed from documentation.
 
-**LLM context window capacity must be tested with the full production prompt stack, not individual agent prompts.** GPT-4.1-mini handled each individual agent prompt in isolation but silently dropped instructions when the full layered stack (security_guardrails + chatbot_behavior + agent-specific prompt) was assembled by `build_instruction()`. The failure was non-obvious — no error, just missing `llm_insights` fields for some rows, and sometimes the entire pipeline halting mid-run. Testing with trimmed prompts masked the real failure mode. Switching to GPT-5.4 resolved all context-capacity issues.
+**LLM context window capacity must be tested with the full production prompt stack, not individual agent prompts.** GPT-4.1-mini handled each individual agent prompt in isolation but silently dropped instructions when the full layered stack (security_guardrails + chatbot_behavior + agent-specific prompt) was assembled by `get_instruction()`. The failure was non-obvious — no error, just missing `llm_insights` fields for some rows, and sometimes the entire pipeline halting mid-run. Testing with trimmed prompts masked the real failure mode. Switching to GPT-5.4 resolved all context-capacity issues.
 
 **Pydantic v2 output schemas are the most reliable guardrail against agent hallucination in structured pipelines.** Before enforcing typed schemas, the Email agent occasionally invented extra fields not in the template, and the Predict agent returned variable numbers of rows. After adding `output_type=PydanticModel` to every agent, schema violations surface immediately as validation errors rather than silently corrupted downstream output. Structured output contracts are more reliable than prompt-level instructions alone for ensuring schema compliance.
 
 **Deterministic Python tools eliminate hallucination at the schema boundary.** The Email agent originally used the LLM to generate email content directly — it invented template variations, added fields not in any defined template, and produced inconsistent severity mappings across runs. Moving email generation to a deterministic Python tool (`email_customers.py`) with pre-defined severity templates eliminated all hallucination in email output: the LLM's role was reduced to selecting the severity tier, and Python handled all content production. The same principle applies to `recommend_actions` — the tool fetches structured SQLite statistics deterministically before passing them to the LLM, ensuring the LLM only narrates verified numbers, never invents them. Where the output must be structurally reliable, delegate generation to code; reserve the LLM for reasoning and narration over that output.
 
-**Layered modular prompts reduce duplication and make cross-cutting changes a single-file update.** An early architecture embedded security constraints and formatting rules in every agent's prompt — 7 copies of overlapping content that diverged over time. Refactoring into three shared layers (`security_guardrails.md`, `chatbot_behavior.md`, `format_summary.md`) assembled programmatically by `build_instruction()` means a security policy change is made in one file and propagates to all agents automatically. Individual agents carry only their domain-specific instructions. The Fallback Advisor gets a different composition (security + its own prompt, no behaviour layer) without requiring a new shared file. The modular approach also made prompt debugging faster — when formatting drifted, the cause was always locatable in `format_summary.md` rather than scattered across seven files.
+**Layered modular prompts reduce duplication and make cross-cutting changes a single-file update.** An early architecture embedded security constraints and formatting rules in every agent's prompt — 7 copies of overlapping content that diverged over time. Refactoring into three shared layers (`security_guardrails.md`, `chatbot_behavior.md`, `format_summary.md`) assembled programmatically by `get_instruction()` means a security policy change is made in one file and propagates to all agents automatically. Individual agents carry only their domain-specific instructions. The Fallback Advisor gets a different composition (its own prompt only — it is reached via handoff from the already-guarded master, never directly by end users) without requiring a new shared file. The modular approach also made prompt debugging faster — when formatting drifted, the cause was always locatable in `format_summary.md` rather than scattered across seven files.
 
 **Multi-agent coordination must mirror the data dependency graph of the underlying pipeline.** The five-agent chain (Predict → Diagnose → Simulate → Recommend → Email) is not arbitrary — each step consumes output produced by a prior step. Diagnose reads `daily_*` SQLite tables written by Predict; Recommend queries the same tables and uses Diagnose patterns to ground SLA citations; Email fetches from the same prediction store. Attempting parallel execution would produce empty or stale data at every downstream step. The Master Orchestrator enforces this sequence explicitly via tool dependency rules in its prompt, freshness sidecar checks as machine-enforceable gates, and the plan confirmation gate — which shows the user a numbered action plan before executing any tool chain, giving a human checkpoint before committing to an expensive sequential run. The agent-as-tool pattern (sub-agents registered as tools on the Master rather than SDK handoffs) was critical here: the Master retains control throughout, assembles all sub-agent Pydantic outputs into a single `MasterOutput`, and can enforce ordering that SDK-level handoffs would not guarantee.
 

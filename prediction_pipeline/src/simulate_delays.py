@@ -31,6 +31,11 @@ _CSV_PATH = _CSV_DIR / "daily_delivery_delay_prediction.csv"
 _SIM_CSV = _CSV_DIR / "simulation_delivery_delays.csv"
 
 _SEVERITY_LABELS = ["Short (1-2h)", "Medium (3-5h)", "Long (6+h)"]
+
+# Cap on rows included in the text report returned to the LLM agent.
+# The FULL result set is always saved to the simulation CSV; the app reads
+# that CSV directly, so the agent only needs a sample to reason about.
+_MAX_REPORT_ROWS = int(os.getenv("SC_SIM_REPORT_ROWS", "40"))
 _FILTERABLE_COLS = {
     "region", "delivery_mode", "vehicle_type",
     "weather_condition", "delivery_partner", "package_type",
@@ -286,7 +291,14 @@ def run_simulation(scenario: str, filters: str, changes: str) -> str:
         "original_severity", "simulated_severity",
     ]
     display_cols = [c for c in display_cols if c in affected.columns]
-    lines.append(affected[display_cols].to_string(index=False))
+    shown = affected[display_cols].head(_MAX_REPORT_ROWS)
+    lines.append(shown.to_string(index=False))
+    if n_affected > _MAX_REPORT_ROWS:
+        lines.append(
+            f"\n(Showing first {_MAX_REPORT_ROWS} of {n_affected} affected rows. "
+            f"The FULL simulation result was saved to {_SIM_CSV} — the app reads it "
+            "from there, so do NOT try to reproduce all rows.)"
+        )
 
     print(
         f"[Simulation] done: {n_affected} rows affected, saved to {_SIM_CSV}",

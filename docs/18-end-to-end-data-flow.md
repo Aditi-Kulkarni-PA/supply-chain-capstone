@@ -7,10 +7,10 @@ The most complex user action — requesting a full analysis — triggers a five-
 | Step | Actor | Action | Output |
 |---|---|---|---|
 | 1 | User | Types "Run Full Analysis" or clicks quick-action button | Intent: FULL PIPELINE |
-| 2 | App (intent detection) | Maps query to `[predict, diagnose, simulate, recommend, email]` | Action plan displayed to user for confirmation |
+| 2 | App (intent detection) | Maps query to `[predict, diagnose, simulate, recommend, email]` | Action plan displayed to user for confirmation; informational questions bypass the plan and go straight to the master agent |
 | 3 | Master Orchestrator | Calls `predict_delivery_delays_tool` via MCP | Prediction JSON |
 | 4 | Prediction Pipeline (MCP) | Extract → Clean → Engineer → Encode → Stage 1 → Stage 2 → Write DB + CSV | prediction CSV + DB updated (27 tables) |
-| 5 | Predict Agent | Enriches each delayed row with LLM-generated `llm_insights` | `predict_summary` + `predict_rows` |
+| 5 | Predict Agent | Enriches each delayed row with LLM-generated `llm_insights` | `predict_summary`; enrichment rows captured by the app from the tool-output stream (master leaves `predict_rows` empty) |
 | 6 | Master Orchestrator | Calls `get_delay_diagnosis` via MCP | Diagnosis JSON |
 | 7 | Diagnosis MCP tool | Reads 24 summary tables from SQLite; computes daily vs historical deltas | `high_risk_patterns` + `comparison_data` |
 | 8 | Diagnosis Agent | Narrates patterns; identifies critical risk combinations | `diagnosis_summary` + diagnosis rows |
@@ -71,7 +71,7 @@ predict_delivery_delays
                 │           └──→ [app writes] diagnosis_meta.json  (freshness sidecar)
                 │
                 ├──→ simulate_order_delays (reads daily_delivery_delay_prediction.csv + hist_summary tables)
-                │           └──→ [writes] simulate_delays_latest.csv
+                │           └──→ [writes] simulation_delivery_delays.csv (app trims/copies → simulate_delays_latest.csv)
                 │
                 └──→ recommend_actions (reads daily_summary tables → RAG → Recommend Agent)
                             └──→ ChromaDB (SLA policy chunks)

@@ -2,8 +2,7 @@
 CLI runner for supply chain delivery evals.
 
 Usage:
-    uv run python evals/run_evals.py             # standard eval suite
-    uv run python evals/run_evals.py --ragas     # add RAGAS metrics
+    uv run python evals/run_evals.py                    # full suite (agents + RAG/RAGAS + human baseline)
     uv run python evals/run_evals.py --agent recommend  # single agent
     uv run python evals/run_evals.py --help
 
@@ -27,11 +26,10 @@ _AGENT_FILES = {
     "recommend": "test_eval_recommend.py",
     "email":     "test_eval_email.py",
     "rag":       "test_eval_rag.py",
-    "master":    "test_eval_master.py",
 }
 
 
-def _build_pytest_args(agent: str | None, ragas: bool, extra: list[str]) -> list[str]:
+def _build_pytest_args(agent: str | None, extra: list[str]) -> list[str]:
     base = [
         "uv", "run", "pytest",
         "--tb=short",
@@ -47,12 +45,6 @@ def _build_pytest_args(agent: str | None, ragas: bool, extra: list[str]) -> list
         base.append(str(EVALS_DIR / _AGENT_FILES[agent]))
     else:
         base.append(str(EVALS_DIR))
-
-    # Include or exclude the ragas marker
-    if ragas:
-        pass  # run everything including ragas-marked tests
-    else:
-        base += ["-m", "not ragas"]
 
     base += extra
     return base
@@ -115,13 +107,11 @@ def main():
     parser = argparse.ArgumentParser(description="Run supply chain delivery agent evals")
     parser.add_argument("--agent", choices=list(_AGENT_FILES.keys()),
                         help="Run evals for a single agent only")
-    parser.add_argument("--ragas", action="store_true",
-                        help="Include RAGAS metrics (gated, calls OpenAI)")
     parser.add_argument("extra", nargs=argparse.REMAINDER,
                         help="Extra args passed directly to pytest")
 
     args = parser.parse_args()
-    pytest_args = _build_pytest_args(args.agent, args.ragas, args.extra)
+    pytest_args = _build_pytest_args(args.agent, args.extra)
     result = _run(pytest_args)
     sys.exit(result["exit_code"])
 

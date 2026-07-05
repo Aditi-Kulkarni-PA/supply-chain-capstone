@@ -293,3 +293,40 @@ def pytest_sessionfinish(session, exitstatus):
 
     report_path.write_text("\n".join(lines), encoding="utf-8")
     print(f"\nEval report written: {report_path}")
+
+    # Machine-readable judge scores — consumed by test_eval_human_baseline.py
+    # so the human-baseline comparison always uses the LATEST run's LLM scores
+    # (the human_scores.xls llm_* columns are only a fallback).
+    import json as _json
+    scores_payload = {
+        "generated": datetime.now().isoformat(timespec="seconds"),
+        "scores": {
+            r["agent"]: {
+                "relevance":    r["relevance"],
+                "faithfulness": r["faithfulness"],
+                "safety":       r["safety"],
+                "mean":         r["mean"],
+            }
+            for r in _records
+        },
+    }
+    (REPORTS_DIR / f"judge_scores_{timestamp}.json").write_text(
+        _json.dumps(scores_payload, indent=2), encoding="utf-8"
+    )
+
+    # judge_scores_latest.json is MERGED per agent, not overwritten — a partial
+    # run (--agent simulate, or an interrupted session) updates only the agents
+    # it actually scored and keeps every other agent's most recent scores.
+    latest_path = REPORTS_DIR / "judge_scores_latest.json"
+    merged: dict = {}
+    if latest_path.exists():
+        try:
+            merged = _json.loads(latest_path.read_text(encoding="utf-8")).get("scores", {})
+        except Exception:
+            merged = {}
+    merged.update(scores_payload["scores"])
+    latest_path.write_text(
+        _json.dumps({"generated": scores_payload["generated"], "scores": merged}, indent=2),
+        encoding="utf-8",
+    )
+    print(f"Judge scores written: {latest_path} ({len(scores_payload['scores'])} agents updated, {len(merged)} total)")

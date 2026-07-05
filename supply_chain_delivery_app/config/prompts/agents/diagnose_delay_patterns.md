@@ -1,12 +1,12 @@
 # Diagnose Delay Patterns
 
-## Role
+## Purpose
 Data Analysis assistant for delay patterns and root cause diagnosis
 
-## Goal
+## Objective
 Compare today's delay patterns against historical data to identify trends, root causes, and high-risk combinations
 
-## Backstory
+## Context
 You have access to the **get_delay_diagnosis** tool which reads ALL summary tables from the prediction database.
 You MUST call **get_delay_diagnosis** (not any other tool). Call it exactly once with NO arguments.
 The tool returns a dict with:
@@ -18,29 +18,13 @@ Do NOT invent data. Use the actual values returned by the tool.
 
 ## Field Glossary
 Use these definitions when interpreting columns in the summary tables:
-- **total_deliveries**: Count of deliveries in this group
-- **delayed_count**: Number of delayed deliveries in this group
-- **on_time_count**: Number of on-time deliveries in this group
-- **delay_rate**: Fraction delayed (delayed_count / total_deliveries)
-- **severity_short_count**: Count with severity = Short (1-2h delay)
-- **severity_medium_count**: Count with severity = Medium (3-5h delay)
-- **severity_long_count**: Count with severity = Long (6+h delay)
-- **avg_distance_km**: Average delivery distance in km for this group
-- **avg_package_weight_kg**: Average package weight in kg for this group
-- **avg_schedule_risk**: Average schedule_risk (km_per_expected_hr x mode_urgency) -- higher means tighter deadline with more urgent delivery mode
-- **distance_category**: Binned distance -- short (< 50 km), medium (50-200 km), long (> 200 km)
-- **pattern_type**: Type of high-risk combination (e.g. mode_weather, weather_vehicle, mode_distance)
-- **pattern_description**: Human-readable description of the combination (e.g. "same_day + Stormy")
-- **risk_level**: Risk classification -- medium (30-40%), high (40-50%), critical (50%+)
-- **weather_severity**: Ordinal weather encoding -- clear=0, hot/cold=1, rainy/foggy=2, stormy=3
-- **mode_urgency**: Ordinal delivery mode urgency -- standard=0, two_day=1, next_day=2, same_day=3
-- **vehicle_load_strain**: package_weight_kg / vehicle_capacity -- higher means more strain
-- **carrier_avg_schedule**: Mean schedule tightness for this delivery partner across training data
+
+@field_glossary
 
 ## Task
 Compare today's delay patterns with historical data across all dimensions to identify trends, root causes, and high-risk combinations. Then write a formatted Markdown summary into `diagnosis_summary`.
 
-## Summary Formatting Rules
+## Summary Generation & Formatting Rules
 
 Heading: `### Delay Pattern Diagnosis: Today vs Historical`
 
@@ -55,8 +39,10 @@ Formatting rules:
 - Use `--` as separator, never an em dash
 - Bold labels for sub-sections
 - Bulleted lists with concrete numbers
+- Bold EVERY number, percentage, dimension/category name, and risk level in the text (e.g. "**East**: **41.6%** today vs **32.1%** historical (**+9.5pp**)", "**critical**", "**same_day + Stormy**") -- key figures must stand out when skimming
 - Round percentages to one decimal place
 - Use ONLY actual values from the tool output -- do NOT invent data
+- End the Root Cause Analysis section with 1-2 plain-language sentences a non-technical manager can act on
 
 ## Expected Output
 DelayDiagnosisResult with:

@@ -85,7 +85,7 @@
 | Simulate | `delay_simulation.md` | FastMCP `simulate` | What-if scenario translation and row enrichment |
 | Recommend | `recommendation.md` | `recommend_actions` (RAG) | SLA-grounded 3-category recommendations |
 | Email Alert | `email_alert.md` | `fetch_delayed_orders_for_email` | Severity-templated customer emails |
-| Format Summary | `format_summary.md` | agent-as-tool | Structured Markdown rendering per output type |
+| Format Summary | `format_summary.md` | agent-as-tool (defined; not currently called) | Replaced by deterministic Python formatting in `helpers/post_processing.py`; available for future use |
 | Fallback Advisor | `fallback_advisor.md` | WebSearchTool | Out-of-scope query handling |
 
 ## Detailed Agent Workflow Docs

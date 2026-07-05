@@ -114,7 +114,7 @@
                                                │
                                ┌───────────────▼──────────────────────┐
                                │  Assemble MasterOutput (Pydantic)    │
-                               │  - predict_summary + predict_rows    │
+                               │  - predict_summary (rows via stream) │
                                │  - diagnosis_summary + high_risk_    │
                                │    rows + comparison_rows            │
                                │  - simulate_summary + simulate_rows  │
@@ -138,7 +138,7 @@
 │  2. Build simulate_df → save simulate_delays_latest.csv             │
 │                                                                     │
 │  3. Build diagnosis tables                                          │
-│     └─ diagnosis_high_risk_df (today's patterns)                    │
+│     └─ diagnosis_high_risk_df (todays patterns)                     │
 │     └─ diagnosis_comparison_df (today vs historical)                │
 │     └─ Save diagnosis_meta.json sidecar for next freshness check    │
 │                                                                     │
@@ -212,3 +212,13 @@ User rephrases → still 0 tool matches → Master routes to Fallback Advisor
 - The Master Orchestrator's prompt stays focused on the five operational tools without fallback logic cluttering it
 - The Fallback Advisor can be given its own system prompt tuned for open-ended Q&A and web search, independent of the structured output contracts the other agents use
 - WebSearchTool is only attached to the Fallback Advisor — the operational agents cannot call it, which prevents unintended web lookups during structured pipeline runs
+
+---
+
+## Update (2026-07-04) — Conversational Path & Single Confirmation
+
+Two additions to the flow above:
+
+- **`MasterOutput.chat_response`** — informational questions (detected by the app gate via interrogative opener or trailing "?") skip the action-plan builder and go straight to the master, which answers directly in `chat_response` from fresh prior results; the app displays it as the chat reply when no analysis output was produced. Fallback Advisor handoff text is displayed the same way.
+- **Single confirmation** — once the user confirms the gate's plan (or clicks a quick action), the query carries a `[SYSTEM: PLAN CONFIRMED]` tag and the master executes immediately instead of presenting a second plan.
+

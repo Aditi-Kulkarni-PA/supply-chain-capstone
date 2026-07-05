@@ -53,7 +53,7 @@
 ┌─────────────────────────────────────────────────────────────┐
 │  Master Agent receives predict tool result                  │
 │  ├── predict_summary → MasterOutput.predict_summary         │
-│  └── delayed_orders  → MasterOutput.predict_rows            │
+│  └── delayed_orders  → captured by app from tool stream     │
 └───────────────────────┬─────────────────────────────────────┘
                         ▼
 ┌─────────────────────────────────────────────────────────────┐

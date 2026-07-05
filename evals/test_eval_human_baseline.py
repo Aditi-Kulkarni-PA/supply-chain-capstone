@@ -1,22 +1,83 @@
 """
 Human baseline calibration — compare LLM-as-judge scores against human reviewer scores.
 
-Reads evals/human_baseline/human_scores.xls and writes a Markdown report to
-evals/reports/human_baseline_report_<timestamp>.md.
+Human scores come from evals/human_baseline/human_scores.xls (never modified here).
+LLM scores come from the LATEST eval run (evals/reports/judge_scores_latest.json,
+written by conftest.pytest_sessionfinish); the llm_* columns in the XLS are used
+only as a fallback when no eval run has been recorded.
+
+Writes a Markdown report to evals/reports/human_baseline_report_<timestamp>.md.
 
 Run:
     uv run pytest evals/test_eval_human_baseline.py -v
 """
 
+import json
 from datetime import datetime
 from pathlib import Path
 
 import pytest
 import xlrd
 
-BASELINE_XLS = Path(__file__).parent / "human_baseline" / "human_scores.xls"
-REPORTS_DIR  = Path(__file__).parent / "reports"
-DIMENSIONS   = ["relevance", "faithfulness", "safety"]
+BASELINE_XLS  = Path(__file__).parent / "human_baseline" / "human_scores.xls"
+REPORTS_DIR   = Path(__file__).parent / "reports"
+LATEST_SCORES = REPORTS_DIR / "judge_scores_latest.json"
+DIMENSIONS    = ["relevance", "faithfulness", "safety"]
+
+# Keyword → judge-record agent name, tolerant of label variants in the XLS.
+# ORDER MATTERS: "predict" must be checked LAST — the simulate agent's label
+# ("Simulate Delay Prediction") contains the substring "predict" and would
+# otherwise be mis-mapped to the predict agent's scores.
+_AGENT_KEYWORDS = [
+    ("simul",     "Simulate Delay Prediction"),
+    ("diagnos",   "Diagnose Delay Patterns"),
+    ("recommend", "Recommendation Expert Agent"),
+    ("email",     "Email Alert Agent"),
+    ("predict",   "Predict Delivery Delays"),
+]
+
+
+def _latest_llm_scores() -> tuple[dict, str]:
+    """Return ({agent_name: {dim: score}}, source_label) for the LLM side.
+
+    Source priority:
+      1. In-memory judge records from THIS pytest session (when the baseline
+         runs inside the full eval suite) — immune to file write-ordering.
+      2. reports/judge_scores_latest.json from the most recent completed run.
+      3. Empty dict — callers fall back to the XLS llm_* columns per row.
+    Sources 1 and 2 are merged (session records win per agent).
+    """
+    session_scores: dict = {}
+    try:
+        import judge  # evals dir is on sys.path via conftest
+        for r in getattr(judge, "_records", []):
+            if all(d in r for d in DIMENSIONS):
+                session_scores[r["agent"]] = {d: float(r[d]) for d in DIMENSIONS}
+    except Exception:
+        pass
+
+    file_scores: dict = {}
+    file_src = ""
+    if LATEST_SCORES.exists():
+        payload = json.loads(LATEST_SCORES.read_text(encoding="utf-8"))
+        file_scores = payload.get("scores", {})
+        file_src = f"latest eval run ({payload.get('generated', 'unknown time')})"
+
+    merged = {**file_scores, **session_scores}
+    if session_scores:
+        return merged, "current eval session (in-memory judge scores)"
+    if file_scores:
+        return merged, file_src
+    return {}, "xls snapshot (no eval run recorded — run evals/run_evals.py first)"
+
+
+def _llm_scores_for(row: dict, latest: dict) -> dict:
+    """LLM scores for one XLS row: latest run if the agent matches, else llm_* columns."""
+    label = (row.get("agent") or "").lower()
+    for keyword, agent_name in _AGENT_KEYWORDS:
+        if keyword in label and agent_name in latest:
+            return {d: float(latest[agent_name][d]) for d in DIMENSIONS}
+    return {d: float(row[f"llm_{d}"]) for d in DIMENSIONS}
 
 
 def _load() -> list[dict]:
@@ -76,9 +137,11 @@ def test_human_scores_in_range(scored):
 
 def test_no_large_divergence(scored):
     """Flag any agent where human mean differs from LLM mean by more than 1.5 points."""
+    latest, _source = _latest_llm_scores()
     large_gaps = []
     for r in scored:
-        llm_mean   = sum(float(r[f"llm_{d}"])   for d in DIMENSIONS) / 3
+        llm        = _llm_scores_for(r, latest)
+        llm_mean   = sum(llm[d] for d in DIMENSIONS) / 3
         human_mean = sum(float(r[f"human_{d}"]) for d in DIMENSIONS) / 3
         if abs(llm_mean - human_mean) > 1.5:
             large_gaps.append(f"{r['agent']}: LLM={llm_mean:.2f} Human={human_mean:.2f}")
@@ -99,6 +162,8 @@ def write_baseline_report():
     if not scored:
         return
 
+    latest, llm_source = _latest_llm_scores()
+
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp   = datetime.now().strftime("%Y%m%dT%H%M%S")
     report_path = REPORTS_DIR / f"human_baseline_report_{timestamp}.md"
@@ -106,7 +171,8 @@ def write_baseline_report():
     lines = [
         "# Human Baseline Calibration Report",
         f"\n**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  ",
-        f"**Source:** `evals/human_baseline/human_scores.xls`  ",
+        f"**Human scores:** `evals/human_baseline/human_scores.xls`  ",
+        f"**LLM scores:** {llm_source}  ",
         f"**Samples scored:** {len(scored)} / {len(all_rows)}\n",
         "---\n",
         "## Summary\n",
@@ -114,7 +180,8 @@ def write_baseline_report():
         "|-------|----------|------------|------|---------|",
     ]
     for r in scored:
-        llm_mean   = sum(float(r[f"llm_{d}"])   for d in DIMENSIONS) / 3
+        llm        = _llm_scores_for(r, latest)
+        llm_mean   = sum(llm[d] for d in DIMENSIONS) / 3
         human_mean = sum(float(r[f"human_{d}"]) for d in DIMENSIONS) / 3
         diff       = human_mean - llm_mean
         sign       = "+" if diff > 0 else ""
@@ -133,9 +200,9 @@ def write_baseline_report():
         "|-------|-----|-------|-------|",
     ]
     for r in scored:
-        lv = float(r["llm_relevance"]); hv = float(r["human_relevance"])
+        lv = _llm_scores_for(r, latest)["relevance"]; hv = float(r["human_relevance"])
         dv = hv - lv; ds = "+" if dv > 0 else ""
-        lines.append(f"| {r['agent']} | {lv:.0f}/5 | {hv:.0f}/5 | {ds}{dv:.0f} |")
+        lines.append(f"| {r['agent']} | {lv:.1f}/5 | {hv:.0f}/5 | {ds}{dv:.1f} |")
     lines.append("")
 
     # ── Faithfulness ──────────────────────────────────────────────────────────
@@ -147,9 +214,9 @@ def write_baseline_report():
         "|-------|-----|-------|-------|",
     ]
     for r in scored:
-        lv = float(r["llm_faithfulness"]); hv = float(r["human_faithfulness"])
+        lv = _llm_scores_for(r, latest)["faithfulness"]; hv = float(r["human_faithfulness"])
         dv = hv - lv; ds = "+" if dv > 0 else ""
-        lines.append(f"| {r['agent']} | {lv:.0f}/5 | {hv:.0f}/5 | {ds}{dv:.0f} |")
+        lines.append(f"| {r['agent']} | {lv:.1f}/5 | {hv:.0f}/5 | {ds}{dv:.1f} |")
     lines.append("")
 
     # ── Safety ────────────────────────────────────────────────────────────────
@@ -161,9 +228,9 @@ def write_baseline_report():
         "|-------|-----|-------|-------|",
     ]
     for r in scored:
-        lv = float(r["llm_safety"]); hv = float(r["human_safety"])
+        lv = _llm_scores_for(r, latest)["safety"]; hv = float(r["human_safety"])
         dv = hv - lv; ds = "+" if dv > 0 else ""
-        lines.append(f"| {r['agent']} | {lv:.0f}/5 | {hv:.0f}/5 | {ds}{dv:.0f} |")
+        lines.append(f"| {r['agent']} | {lv:.1f}/5 | {hv:.0f}/5 | {ds}{dv:.1f} |")
     lines.append("")
 
     # ── Per-sample reviewer notes ─────────────────────────────────────────────

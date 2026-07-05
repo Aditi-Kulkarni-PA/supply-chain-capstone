@@ -72,7 +72,7 @@
                        │ returns to Master
                        ▼
 ┌─────────────────────────────────────────────────────────┐
-│  Master calls format_summary_tool                       │
+│  App builds display from rows (post_processing.py)      │
 │  summary_type: recommendation                           │
 │  Renders: Quick-Win / Short-term / Long-term sections   │
 │  Each action shows: data metrics + SLA reference        │

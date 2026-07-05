@@ -8,15 +8,16 @@ UI orchestrates the agents and streams results in real time.
 
 ```
 ╔══════════════════════════════════════════════════════════════════════╗
-║  PROMPT ASSEMBLY  (config/load_config.py — build_instruction())      ║
+║  PROMPT ASSEMBLY  (config/load_config.py — get_instruction())        ║
 ║                                                                      ║
-║  shared/security_guardrails.md  ← prepended first (highest priority) ║
-║           +                                                          ║
-║  shared/chatbot_behavior.md     ← query routing, plan confirmation   ║
-║           +                                                          ║
-║  agents/<agent>.md              ← domain reasoning per agent         ║
+║  agents/<agent>.md              ← full file = agent prompt (WYSIWYG) ║
+║  @name lines                    ← include shared/<name>.md content   ║
+║                                                                      ║
+║  master_expert.md begins with two includes (highest priority first): ║
+║  @security_guardrails           ← security constraints               ║
+║  @chatbot_behavior              ← query routing, plan confirmation   ║
 ║           │                                                          ║
-║           ▼  assembled instruction string                            ║
+║           ▼  instruction string                                      ║
 ╚══════════════════════════════════════════════════════════════════════╝
                             │
 ╔══════════════════════════════════════════════════════════════════════╗
@@ -28,7 +29,7 @@ UI orchestrates the agents and streams results in real time.
 ║  ├── Simulate Agent     → output: SimulationOutput (Pydantic)        ║
 ║  ├── Recommend Agent    → output: RecommendationOutput (Pydantic)    ║
 ║  ├── Email Alert Agent  → output: EmailsList (Pydantic)              ║
-║  ├── Format Summary Agent (agent-as-tool, shared/format_summary.md)  ║
+║  ├── Format Summary Agent (replaced by python; kept for future)      ║
 ║  └── Fallback Advisor   → WebSearchTool                              ║
 ║                                                                      ║
 ║  All outputs validated via Pydantic v2 structured output contracts   ║
@@ -77,7 +78,7 @@ supply_chain_delivery_app/
 ├── delivery_chat_app.py           # Gradio UI — entry point
 ├── delivery_agents.py             # Pydantic output models + agent definitions
 ├── config/
-│   ├── load_config.py             # build_instruction() — assembles layered prompts
+│   ├── load_config.py             # get_instruction() — reads prompt .md files verbatim
 │   └── prompts/
 │       ├── agents/                # 7 agent-specific markdown prompts
 │       │   ├── master_expert.md
@@ -87,10 +88,11 @@ supply_chain_delivery_app/
 │       │   ├── recommendation.md
 │       │   ├── email_alert.md
 │       │   └── fallback_advisor.md
-│       └── shared/                # 3 cross-cutting prompts (prepended to agent prompts)
-│           ├── security_guardrails.md
-│           ├── chatbot_behavior.md
-│           └── format_summary.md
+│       └── shared/                      # 4 cross-cutting prompts
+│           ├── security_guardrails.md   # master layer 1
+│           ├── chatbot_behavior.md      # master layer 2
+│           ├── field_glossary.md        # @include'd into predict/diagnose/format prompts
+│           └── format_summary.md        # format agent (currently unused)
 ├── tools/
 │   ├── rag_knowledge.py           # ChromaDB + hybrid retrieval (cosine + keyword)
 │   ├── recommend_actions.py       # SQLite reads + RAG retrieval for recommendations
@@ -104,11 +106,7 @@ supply_chain_delivery_app/
 ├── vectorstore/                   # ChromaDB persistent store (gitignored)
 ├── input/                         # Daily order CSVs for prediction
 ├── output/                        # Generated prediction, simulation, and email CSVs (gitignored)
-├── log/                           # Runtime application logs
-└── notebooks/
-    ├── main.ipynb
-    ├── sc_delivery_agents.ipynb
-    └── logic-workflow-fixes.ipynb
+└── log/                           # Runtime application logs
 ```
 
 ### Github Repository
@@ -208,20 +206,26 @@ The server runs persistently over stdio; the delivery app spawns it as a subproc
 ## Agent Configuration (Markdown Prompts)
 
 Each agent's instructions live in a dedicated `.md` file under
-`config/prompts/agents/`. `load_config.build_instruction()` reads the file,
-parses `## Role`, `## Goal`, `## Backstory`, `## Task`, and `## Expected Output`
-sections, and prepends the shared security and behaviour prompts before passing
-the assembled instruction to the OpenAI Agents SDK `Agent()`.
+`config/prompts/agents/`. Loading is WYSIWYG: `load_config.get_instruction()`
+passes the full file content verbatim to the OpenAI Agents SDK `Agent()`, so
+every section written in the file (Purpose, Objective, Context, Rules, few-shot
+examples, Task, Expected Output, …) reaches the model. A line containing only
+`@name` is an include directive, replaced with that prompt file's content —
+shared reference material like `shared/field_glossary.md` is written once and
+included wherever needed (predict, diagnose, format_summary).
 
-**Prompt layering order** (highest priority first):
+**Master agent layering** is expressed with the same include mechanism —
+`master_expert.md` begins with `@security_guardrails` and `@chatbot_behavior`
+(highest priority first), so the precedence order is visible in the prompt
+file itself; the loader has no special cases:
 
 ```
-shared/security_guardrails.md   ← security constraints, scope restriction
-shared/chatbot_behavior.md      ← query routing, action plan confirmation
-agents/<agent_name>.md          ← domain reasoning for this agent
+@security_guardrails   ← security constraints, scope restriction
+@chatbot_behavior      ← query routing, action plan confirmation
+(master_expert.md own content — orchestration rules)
 ```
 
-`shared/format_summary.md` is used by the dedicated Format Summary agent
+`shared/format_summary.md` defines the Format Summary agent (no longer called in the main flow — display formatting is deterministic in `helpers/post_processing.py`); it previously served
 (called as a sub-agent tool) to separate rendering logic from reasoning logic.
 
 Edit any `.md` file and restart the app to change agent behaviour — no Python
@@ -237,7 +241,7 @@ changes required.
 | Simulate | `delay_simulation.md` | MCP `simulate` | What-if scenario translation and row-level enrichment |
 | Recommend | `recommendation.md` | `recommend_actions` (RAG) | SLA-grounded 3-category optimization recommendations |
 | Email Alert | `email_alert.md` | `fetch_delayed_orders_for_email` | Severity-templated customer email generation (Python-deterministic) |
-| Format Summary | `format_summary.md` | agent-as-tool | Structures final Markdown output per summary type |
+| Format Summary | `format_summary.md` | agent-as-tool (defined; not currently called) | Replaced by deterministic Python formatting in `post_processing.py`; available for future use |
 | Fallback Advisor | `fallback_advisor.md` | WebSearchTool | Handles out-of-scope queries |
 
 ## RAG Knowledge Base

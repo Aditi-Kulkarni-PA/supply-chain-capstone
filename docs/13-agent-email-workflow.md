@@ -58,7 +58,7 @@
                        ▼
 ┌──────────────────────────────────────────────────────────┐
 │  Master:                                                 │
-│  1. Calls format_summary_tool (summary_type: email_alert)│
+│  1. App renders emails deterministically (post_process.) │
 │     → MasterOutput.email_alert_summary                   │
 │  2. Sets MasterOutput.email_alerts = EmailsList          │
 └──────────────────────┬───────────────────────────────────┘
@@ -90,5 +90,5 @@
 | UI rendering | `gr.Markdown` — templates joined with `\n\n---\n\n` separator and **To:** bolded |
 | CSV download | `gr.File` widget shows the updated CSV with email columns for download |
 | Pre-requisite (master prompt) | **3-tier check:** (1) predict already called → skip, (2) `[SYSTEM: FRESH]` → skip, (3) `NOT FRESH` → run predict first |
-| format_summary_tool | Master calls it with `summary_type: email_alert` → renders overview, template breakdown, CSV confirmation |
+| format_summary_tool | No longer called — replaced by deterministic Python formatting in `helpers/post_processing.py` (agent remains available for future use) |
 | allowed_paths | `delivery_app.py` includes `output/` in `allowed_paths` for Gradio file serving |

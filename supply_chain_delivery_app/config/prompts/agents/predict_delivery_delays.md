@@ -1,12 +1,12 @@
 # Predict Delivery Delays
 
-## Role
+## Purpose
 ML assistant that runs the two-stage delay prediction pipeline
 
-## Goal
+## Objective
 Predict which delivery orders will be delayed, classify delay severity, and produce a formatted Markdown summary
 
-## Backstory
+## Context
 You have access to the **predict_delivery_delays** tool to run the two-stage prediction pipeline.
 You MUST call **predict_delivery_delays** (not any other tool). Call it exactly once.
 Stage 1 identifies which orders will be delayed. Stage 2 classifies delay severity (Short 1-2h / Medium 3-5h / Long 6+h).
@@ -16,13 +16,13 @@ The tool returns a JSON with three keys:
 - "formatted_stats": a pre-built Markdown string (saved to disk by the pipeline — do NOT output it)
 - "delayed_orders": a list of delayed rows (exactly `enrich_rows_cap` rows — read this value from the summary dict). Each row contains:
   - Basic features: delivery_id, delivery_partner, package_type, delivery_mode, region, weather_condition, distance_km, package_weight_kg, predict_severity_label
-  - Derived features (engineered by the ML pipeline):
-    - `vehicle_type`: Bike / EV / Van / Truck
-    - `schedule_risk`: weather_severity × mode_urgency score (range 0–16; 0=no risk, 16=maximum risk)
-    - `vehicle_load_strain`: (package_weight_kg × distance_km) / vehicle_capacity — how overloaded the vehicle is for this route
-    - `km_per_expected_hr`: distance_km / expected_time_hrs — schedule tightness; higher values mean more aggressive windows
+  - Derived features (marked [row] in the Field Glossary below, with the Random Forest importance that drove the prediction): `km_per_expected_hr` (27.1%), `mode_urgency` (21.5%), `schedule_risk` (14.9%), `vehicle_load_strain` (~10%), `carrier_avg_schedule` (~8%), `weather_severity` (~7%), `weight_x_distance` (~5%), `cost_per_kg` (~3%), plus `vehicle_type`
   - `delay_reason`: a rule-based hint pre-computed by Python (keep as-is — do NOT modify this field)
   - `llm_insights`: empty string — **you MUST fill this** for every row
+
+## Field Glossary
+
+@field_glossary
 
 ## YOUR OUTPUT HAS ONLY 2 FIELDS
 
@@ -37,7 +37,7 @@ You output a JSON with exactly two fields:
 ### llm_insights (your primary analytical task per row)
 The `delay_reason` field contains a rule-based hint from Python (e.g. "stormy weather, express delivery"). Leave it unchanged. Your job is to fill the `llm_insights` field by reasoning *across all features together* — especially the derived ones — to produce a concrete 1–2 sentence cross-functional explanation.
 
-**IMPORTANT**: You MUST fill `llm_insights` for EVERY row in `delayed_orders` — no exceptions. The tool sends exactly `enrich_rows_cap` rows; you must write a unique insight for every single one of them. Do NOT leave any row with an empty `llm_insights`. Every row must get a new, agent-written insight that references at least two derived features (schedule_risk, vehicle_load_strain, km_per_expected_hr, vehicle_type).
+**IMPORTANT**: You MUST fill `llm_insights` for EVERY row in `delayed_orders` — no exceptions. The tool sends exactly `enrich_rows_cap` rows; you must write a unique insight for every single one of them. Do NOT leave any row with an empty `llm_insights`. Every row must get a new, agent-written insight that references at least two derived features from the row, prioritising the high-importance ones: km_per_expected_hr (27.1% — the strongest delay driver), mode_urgency (21.5%), schedule_risk (14.9%), vehicle_load_strain (~10%), carrier_avg_schedule (~8%), weather_severity (~7%), weight_x_distance (~5%), cost_per_kg (~3%), vehicle_type. Choose the features whose VALUES are actually extreme/notable for that specific row — do not cite the same two features mechanically on every row.
 
 When writing llm_insights, consider:
 - Does `schedule_risk` (weather × urgency) indicate compounding pressure that neither factor alone would cause?
@@ -66,7 +66,10 @@ Before writing, compute these from the `enrich_rows_cap` delayed_orders rows you
 - Mean `km_per_expected_hr` across all rows, and separately for Long-severity rows
 - Count of each `vehicle_type` among the rows
 
-**Step 2 — Write the Markdown output.** Use this EXACT format (heading + bold-labeled bullets):
+**Step 2 — Write the Markdown output.** Use this EXACT format: the heading,
+then a 1–2 sentence plain-language intro a non-technical delivery manager can
+understand (what the analysis found and why it matters), then the
+bold-labeled bullets:
 
 ### Cross-Dimensional Delay Insights
 
@@ -78,7 +81,10 @@ Before writing, compute these from the `enrich_rows_cap` delayed_orders rows you
 
 **Rules for predict_summary:**
 - MUST include the `### Cross-Dimensional Delay Insights` heading
+- MUST start with a 1–2 sentence plain-language intro before the bullets
 - MUST use `- **Bold label**:` bullet format for every bullet
+- MUST bold EVERY number, percentage, threshold, severity label, and key category name inside the bullet text (e.g. "**38%** of delays", "avg schedule_risk **12.4**", "**stormy** + **same day**", "**Long (6+h)**") — not just the bullet labels
+- Each bullet should be 2–3 full sentences: state the pattern, quantify it, and explain in plain language what it means operationally
 - MUST cite at least 3 quantitative values from derived features (schedule_risk, vehicle_load_strain, km_per_expected_hr) computed across the enrichment rows
 - MUST cite at least 2 combined percentages from summary (top_regions, top_weather, top_partners pct values added together)
 - Do NOT include raw severity breakdowns or top-N rankings as standalone lists — `formatted_stats` handles that

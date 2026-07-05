@@ -138,7 +138,7 @@ def fetch_delayed_orders_for_email() -> str:
 
         df = pd.read_csv(csv_path)
 
-    # The CSV may be delayed-only (no predict_delay column) or full (with predict_delay column)
+        # The CSV may be delayed-only (no predict_delay column) or full (with predict_delay column)
         if "predict_delay" in df.columns:
             delayed = df[df["predict_delay"] == 1].copy()
         else:
@@ -154,7 +154,7 @@ def fetch_delayed_orders_for_email() -> str:
         if _MAX_ROWS:
             delayed = delayed.head(_MAX_ROWS)
 
-    # Generate emails for all delayed rows
+        # Generate emails for all delayed rows
         template_keys: list[str] = []
         email_texts: list[str] = []
         for _, row in delayed.iterrows():
@@ -162,7 +162,7 @@ def fetch_delayed_orders_for_email() -> str:
             template_keys.append(sev_key)
             email_texts.append(email)
 
-    # Write back to the CSV
+        # Write back to the CSV
         delayed["email_template_name"] = template_keys
         delayed["email_content"] = email_texts
 
@@ -182,24 +182,24 @@ def fetch_delayed_orders_for_email() -> str:
             flush=True,
         )
 
-    # Build summary for the agent
+        # Build summary for the agent
         counts = pd.Series(template_keys).value_counts().to_dict()
         lines: list[str] = []
-        lines.append(f"## Email Alert Generation Summary")
+        lines.append("## Email Alert Generation Summary")
         lines.append(f"- Total delayed orders emailed: {len(email_texts)}")
-        lines.append(f"- CSV updated with email_template_name and email_content columns")
-        lines.append(f"\n### Emails by Template")
+        lines.append("- CSV updated with email_template_name and email_content columns")
+        lines.append("\n### Emails by Template")
         for tpl, cnt in sorted(counts.items()):
             lines.append(f"- **{tpl} Delay Template**: {cnt} emails")
 
-        lines.append(f"\n### Template Definitions")
+        lines.append("\n### Template Definitions")
         for i, (tpl_key, tpl_text) in enumerate(_TEMPLATES.items()):
             if i > 0:
                 lines.append("\n---\n")
             lines.append(f"\n#### {tpl_key} Delay Template")
             lines.append(f"```\n{tpl_text}\n```")
 
-    # Include a few sample emails
+        # Include a few sample emails
         sample_count = min(3, len(email_texts))
         lines.append(f"\n### Sample Generated Emails ({sample_count} shown)")
         for i in range(sample_count):

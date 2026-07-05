@@ -83,15 +83,16 @@
 │                                                                     │
 │  Step 7: Save simulation_delivery_delays.csv                        │
 │                                                                     │
-│  Step 8: Return Markdown summary + top N rows (SC_MCP_DISPLAY_ROWS) │
+│  Step 8: Return Markdown summary + sample rows (SC_SIM_REPORT_ROWS, │
+│          default 40); FULL results saved to the simulation CSV      │
 └───────────────────────────────┬─────────────────────────────────────┘
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │          delay_simulation_agent  (post-processing)                  │
 │                                                                     │
-│  Enriches EVERY row with simulate_delay_reason inferred from        │
-│  scenario + original_severity + simulated_severity                  │
+│  Enriches each row of the tools capped sample with a                │
+│  simulate_delay_reason inferred from scenario + severity shift      │
 │                                                                     │
 │  Returns SimulationsList (list[SimulateDelays])                     │
 └───────────────────────────────┬─────────────────────────────────────┘
@@ -100,8 +101,8 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │              master_expert  (post-processing)                       │
 │                                                                     │
-│  Copies simulations → MasterOutput.simulate_rows                    │
-│  Calls format_summary_tool → MasterOutput.simulate_summary          │
+│  Copies sampled simulations → MasterOutput.simulate_rows            │
+│  Writes brief simulate_summary (no format_summary_tool)             │
 └───────────────────────────────┬─────────────────────────────────────┘
                                 │
                                 ▼
@@ -109,8 +110,9 @@
 │                      delivery_app.py  (Gradio)                      │
 │                                                                     │
 │  simulate_summary → Simulation tab (Markdown)                       │
-│  simulate_rows → DataFrame table                                    │
-│  Saves simulate_delays_latest.csv to output/                        │
+│  Reads FULL simulation_delivery_delays.csv (source of truth),       │
+│  merges simulate_delay_reason by delivery_id, trims to the          │
+│  10-column display schema; saves simulate_delays_latest.csv         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -133,3 +135,10 @@
 | Combined-table priority | Lookup priority: `mode+weather → weather+vehicle → mode+vehicle (averaged) → single-dimension fallback`. |
 | Filter context | Filter values (not being changed) are passed to the lookup to enable more specific combined-table matches (e.g., filtering by `delivery_mode=same day` + changing `weather=foggy` → uses the `mode_weather` combined table). |
 | Prerequisite check | Simulation now has the same **FRESH/NOT FRESH check** as diagnosis, since it reads the delayed-orders CSV that predict produces. |
+
+---
+
+## Update (2026-07-04) — CSV as Source of Truth
+
+Testing showed that requiring the agent to transcribe every simulation row (241 in a full run) through structured LLM output silently collapsed to zero rows. The flow was rebalanced: the tool's text report now includes only a capped sample (`SC_SIM_REPORT_ROWS`, default 40) for the agent to enrich, while the app reads the **full** `simulation_delivery_delays.csv` written by the tool, merges the agent's `simulate_delay_reason` by `delivery_id`, and trims to the 10-column display schema (severity columns adjacent). Tool errors (invalid enum value, no matching rows) are now quoted verbatim in `simulate_summary` instead of surfacing as "ran with no changes".
+

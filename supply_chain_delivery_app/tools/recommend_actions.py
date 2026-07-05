@@ -134,12 +134,14 @@ def recommend_actions() -> str:
         # ---- 1. Validate prerequisites ----
         if not _DB_PATH.exists():
             status = "missing_db"
+            _LOGGER.warning("tool.recommend_actions.missing_db path=%s", _DB_PATH)
             return (
                 "ERROR: Prediction database not found. "
                 "Run predict_delivery_delays_tool first."
             )
         if not _DAILY_CSV.exists():
             status = "missing_daily_csv"
+            _LOGGER.warning("tool.recommend_actions.missing_daily_csv path=%s", _DAILY_CSV)
             return (
                 "ERROR: Daily delayed-orders CSV not found. "
                 "Run predict_delivery_delays_tool first."
@@ -266,6 +268,14 @@ def recommend_actions() -> str:
             sections.append(f"- **{dim}**: {items}")
 
         tool_output = "\n".join(sections)
+
+        # Data-read summary — mirrors the step-level logging of the other tools
+        _LOGGER.info(
+            "tool.recommend_actions.data dims_compared=%s hist_high_risk=%s "
+            "daily_high_risk=%s severity_hotspots=%s hist_top_dims=%s daily_top_dims=%s output_chars=%s",
+            len(dim_comparisons), len(hist_risk), len(daily_risk),
+            len(severity_hotspots), len(hist_tops), len(daily_tops), len(tool_output),
+        )
 
         # ---- 10. Retrieve SLA knowledge via RAG ----
         try:

@@ -31,7 +31,7 @@ Conclusion: Keep security guardrails only on the master expert. It's the sole us
 
 ## Guardrail Categories
 
-Security guardrails are implemented as a highest-priority system prompt layer injected before all other agent instructions, in the order: **Security Guardrails → Chatbot Behavior → Agent Expert Instructions**. This layering is enforced in `config/load_config.py` (`build_instruction()`), ensuring security rules cannot be overridden by later instruction sections.
+Security guardrails are implemented as a highest-priority system prompt layer injected before all other agent instructions, in the order: **Security Guardrails → Chatbot Behavior → Agent Expert Instructions**. This layering is expressed as `@security_guardrails` / `@chatbot_behavior` include directives at the top of `master_expert.md` (expanded by `get_instruction()` in `config/load_config.py`), ensuring security rules come first and cannot be overridden by later instruction sections.
 
 ### 1. Scope Restriction
 
@@ -78,7 +78,7 @@ The agent is strictly limited to supply chain delivery operations: delay predict
 **Purpose:** Restrict the agent to its registered tool set, preventing arbitrary external calls.
 
 **Enforcement:**
-- Only calls tools explicitly listed in the session tool registry (predict, diagnose, simulate, recommend, email_alert, format_summary)
+- Only calls tools explicitly listed in the session tool registry (predict, diagnose, simulate, recommend, email_alert; format_summary is defined but not currently wired into the registry)
 - Does not attempt to call unlisted tools, construct arbitrary HTTP requests, or access external URLs or services
 - Does not use tool outputs to infer or reveal credentials, internal system details, or configuration beyond what is needed for the task
 
@@ -109,7 +109,7 @@ The MCP client is additionally configured with an explicit `tool_filter` that wh
 ## Prompt Layer Architecture
 
 ```
-Master Agent instruction stack (assembled by build_instruction()):
+Master Agent instruction stack (assembled via @include directives in master_expert.md):
   [1] security_guardrails.md      ← highest priority
   [2] chatbot_behavior.md
   [3] master_expert.md            ← domain logic

@@ -63,12 +63,22 @@ From the `0_supply_chain_capstone/` directory:
 
 | Command | What it runs |
 |---------|-------------|
-| `uv run python evals/run_evals.py` | Full suite — all 5 agents + RAGAS (recommended) |
-| `uv run python evals/run_evals.py --agent recommend` | Single agent |
+| `uv run python evals/run_evals.py` | Full suite — 5 agent evals + RAG/RAGAS + human-baseline calibration (recommended) |
+| `uv run python evals/run_evals.py --agent <name>` | Single agent: predict / diagnose / simulate / recommend / email / rag |
 | `uv run pytest evals/test_eval_predict.py -v` | Single agent (direct pytest) |
 | `uv run pytest evals/ -v` | Full suite via pytest directly |
 
-The report is written automatically to `evals/reports/eval_report_<timestamp>.md` after each run.
+Notes:
+- RAGAS metrics run as part of the standard suite (`test_eval_rag.py`); there is
+  no separate gating flag. The former `--ragas` flag and `ragas` pytest marker
+  were vestigial (no test carried the marker) and have been removed.
+- A `master` single-agent option existed historically; `test_eval_master.py`
+  was removed and the option with it. Master-level behaviour is exercised via
+  the app flow and covered indirectly by the per-agent evals.
+
+Each run writes to `evals/reports/`: `eval_report_<ts>.md`,
+`judge_scores_<ts>.json` + merged `judge_scores_latest.json`, the raw pytest
+`<ts>.json`, and (when the baseline tests run) `human_baseline_report_<ts>.md`.
 
 ---
 
@@ -266,3 +276,19 @@ uv run pytest evals/ -v
 | `prediction_pipeline/` | untouched |
 | `tests/` | untouched — existing tests run independently |
 | `delivery_predictions.db` | untouched — production DB, never read or written by evals |
+
+---
+
+## Update (2026-07-04) — Human Baseline Uses Latest Judge Scores
+
+`pytest_sessionfinish` now also writes machine-readable judge scores to
+`evals/reports/judge_scores_<timestamp>.json` and `judge_scores_latest.json`.
+The human-baseline comparison (`test_eval_human_baseline.py`) reads the LLM
+side from the judge's in-memory records when it runs inside the same pytest
+session as the agent evals (no file write-ordering dependence), else from
+`judge_scores_latest.json` — so it always reflects the most recent
+eval run — while human scores continue to come from `human_scores.xls`
+(never modified). The `llm_*` columns in the XLS are used only as a fallback
+when no eval run has been recorded, and the report header states which source
+was used.
+

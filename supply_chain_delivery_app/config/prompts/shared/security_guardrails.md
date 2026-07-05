@@ -75,6 +75,4 @@ do not engage further with that line of questioning.
 
 ---
 
-# Chatbot Interaction Behavior
-
-_(The following chat instructions apply after the security rules above are satisfied.)_
+_(The chat interaction instructions in the next layer apply after the security rules above are satisfied.)_

@@ -35,8 +35,7 @@ _CHROMA_DIR = _APP_DIR / "vectorstore"                     # persistent chroma s
 # ---------------------------------------------------------------------------
 # Embedding config
 # ---------------------------------------------------------------------------
-_EMBED_MODEL = "text-embedding-3-small"
-_EMBED_DIM = 1536
+_EMBED_MODEL = "text-embedding-3-small"  # 1536-dim embeddings
 
 # Chunking params
 _CHUNK_MAX_TOKENS = 500          # target tokens per chunk (approx 4 chars/token)
@@ -124,61 +123,6 @@ def _chunk_document(text: str) -> list[str]:
         else:
             result.append(doc.page_content)
     return result
-
-
-# ---------------------------------------------------------------------------
-# Reference: original custom chunking functions (retained for reference)
-# ---------------------------------------------------------------------------
-# def _split_md_sections(text: str) -> list[dict]:
-#     """Split markdown text on level-2 (##) and level-3 (###) headings.
-#     Returns list of {heading, body} dicts preserving section hierarchy."""
-#     sections: list[dict] = []
-#     current_heading = "Introduction"
-#     current_lines: list[str] = []
-#
-#     for line in text.split("\n"):
-#         if re.match(r"^#{2,3}\s", line):
-#             if current_lines:
-#                 sections.append({
-#                     "heading": current_heading,
-#                     "body": "\n".join(current_lines).strip(),
-#                 })
-#             current_heading = line.strip().lstrip("#").strip()
-#             current_lines = [line]
-#         else:
-#             current_lines.append(line)
-#
-#     if current_lines:
-#         sections.append({
-#             "heading": current_heading,
-#             "body": "\n".join(current_lines).strip(),
-#         })
-#     return sections
-#
-#
-# def _chunk_section(heading: str, body: str) -> list[str]:
-#     """Split a single section into sized chunks with overlap.
-#     Tries to break on paragraph boundaries (double newline)."""
-#     if len(body) <= _CHUNK_MAX_CHARS:
-#         return [f"[{heading}]\n{body}"]
-#
-#     paragraphs = re.split(r"\n{2,}", body)
-#     chunks: list[str] = []
-#     current = ""
-#
-#     for para in paragraphs:
-#         candidate = (current + "\n\n" + para).strip() if current else para
-#         if len(candidate) > _CHUNK_MAX_CHARS and current:
-#             chunks.append(f"[{heading}]\n{current}")
-#             overlap = current[-_OVERLAP_CHARS:] if len(current) > _OVERLAP_CHARS else current
-#             current = overlap + "\n\n" + para
-#         else:
-#             current = candidate
-#
-#     if current.strip():
-#         chunks.append(f"[{heading}]\n{current}")
-#
-#     return chunks
 
 
 # ---------------------------------------------------------------------------

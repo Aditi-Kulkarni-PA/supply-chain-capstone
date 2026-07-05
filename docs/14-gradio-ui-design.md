@@ -72,6 +72,6 @@ Composite intents trigger automatic prerequisite chaining — the Master Orchest
 
 ## Format Agent
 
-The Format Summary agent is an internal-only agent invoked by the Master Orchestrator after all specialist agents complete. It applies deterministic Markdown formatting rules to each of the five summary types before rendering in the Gradio chat panel.
+The Format Summary agent has been replaced by deterministic Python formatting in `helpers/post_processing.py` — every tab's display is now built in code from validated sub-agent row data. The agent remains defined in `delivery_agents.py` and available for future use/changes.
 
 **Full Format Agent design, output structure per summary type, and formatting rules:** [`docs/19-format-agent-design.md`](19-format-agent-design.md)

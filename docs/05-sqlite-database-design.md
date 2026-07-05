@@ -69,9 +69,9 @@ These are the columns agents and tools read to understand delay drivers:
 | Column | Description |
 |---|---|
 | `km_per_expected_hr` | Distance / expected time — schedule tightness. Top Stage 1 feature (27.1% importance) |
-| `mode_urgency` | Ordinal encoding: standard=0, two_day=1, next_day=2, same_day=3. Second feature (21.5%) |
-| `schedule_risk` | `km_per_expected_hr × mode_urgency` — combines tightness with urgency. Third feature (14.9%) |
-| `weather_severity` | Ordinal: clear=0, hot/cold=1, rainy/foggy=2, stormy=3 |
+| `mode_urgency` | Ordinal encoding: standard=1, two_day=2, express=3, same_day=4. Second feature (21.5%) |
+| `schedule_risk` | `weather_severity × mode_urgency` (0–16) — compounding weather-urgency pressure. Third feature (14.9%) |
+| `weather_severity` | Ordinal: clear=0, hot/cold=1, foggy=2, rainy=3, stormy=4 |
 | `vehicle_load_strain` | `package_weight_kg / vehicle_capacity` |
 | `carrier_avg_schedule` | Mean `km_per_expected_hr` for this partner across training data |
 

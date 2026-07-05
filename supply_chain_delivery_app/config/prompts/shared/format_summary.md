@@ -44,15 +44,9 @@ CRITICAL: Use total_orders for the overview denominator. The grouping percentage
 
 Heading: "### Delay Pattern Diagnosis: Today vs Historical"
 
-Field Glossary (use these when interpreting and narrating the data):
-- **delay_rate**: Fraction delayed (delayed_count / total_deliveries)
-- **severity_short/medium/long_count**: Delay severity buckets -- Short (1-2h), Medium (3-5h), Long (6+h)
-- **avg_schedule_risk**: km_per_expected_hr x mode_urgency -- higher = tighter deadline + more urgent mode
-- **pattern_type**: High-risk combination type (e.g. mode_weather, weather_vehicle)
-- **risk_level**: medium (30-40% delay rate), high (40-50%), critical (50%+)
-- **distance_category**: short (< 50 km), medium (50-200 km), long (> 200 km)
-- **weather_severity**: clear=0, hot/cold=1, rainy/foggy=2, stormy=3
-- **mode_urgency**: standard=0, two_day=1, next_day=2, same_day=3
+Field glossary (applies to ALL summary types -- use when interpreting and narrating data):
+
+@field_glossary
 
 Sections in order:
 1. **Overall**: Compare today's total orders, delayed count, and delay rate vs historical

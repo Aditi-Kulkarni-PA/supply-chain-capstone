@@ -98,11 +98,18 @@ _MCP_DISPLAY_COLS: List[str] = [
     "delivery_id", "delivery_partner", "package_type",
     "delivery_mode", "region", "weather_condition",
     "distance_km", "package_weight_kg", "predict_severity_label",
-    # Derived features — give the agent cross-functional reasoning material
+    # Derived features — give the agent cross-functional reasoning material.
+    # Selected by Random Forest feature importance so llm_insights can
+    # reference what actually drove the prediction:
     "vehicle_type",          # Bike / EV / Van / Truck
-    "schedule_risk",         # weather_severity × mode_urgency (0–16)
-    "vehicle_load_strain",   # (weight × distance) / vehicle_capacity
-    "km_per_expected_hr",    # distance / expected_time (schedule tightness)
+    "km_per_expected_hr",    # distance / expected_time (schedule tightness) — 27.1% importance
+    "mode_urgency",          # Standard=1 … Same Day=4 — 21.5% importance
+    "schedule_risk",         # weather_severity × mode_urgency (0–16) — 14.9% importance
+    "vehicle_load_strain",   # (weight × distance) / vehicle_capacity — ~10% importance
+    "carrier_avg_schedule",  # partner's mean schedule tightness — ~8% importance
+    "weather_severity",      # Clear=0 … Stormy=4 — ~7% importance
+    "weight_x_distance",     # load-distance burden — ~5% importance
+    "cost_per_kg",           # weight-adjusted pricing — ~3% importance
 ]
 _MCP_ADVERSE_WEATHER = {"stormy", "rainy", "foggy"}
 _MCP_ENRICH_ROWS: int = int(os.getenv("SC_MCP_ENRICH_ROWS", 50))   # rows sent to agent; set SC_MCP_ENRICH_ROWS in .env
@@ -458,17 +465,17 @@ class DailyPredictionPipeline:
         # ---- build formatted stats and save to file (app reads directly, bypassing LLM) ----
         def _fmt_top(entries: list) -> str:
             return "\n".join(
-                f"- {e['name']}: {e['count']} orders ({e['pct']}% of delayed)"
+                f"- **{e['name']}**: **{e['count']}** orders (**{e['pct']}%** of delayed)"
                 for e in entries
             )
 
         formatted_stats = (
             f"### Delivery Delay Prediction Results\n\n"
-            f"**Overview**: Analyzed {total_orders} orders -- {total_delayed} predicted delayed ({summary['pct_delayed']}%)\n\n"
+            f"**Overview**: Analyzed **{total_orders}** orders -- **{total_delayed}** predicted delayed (**{summary['pct_delayed']}%**)\n\n"
             f"**Severity Breakdown** (delayed orders only):\n"
-            f"- Short (1-2h): {severity_short} orders ({round(severity_short / total_orders * 100, 1) if total_orders else 0}%)\n"
-            f"- Medium (3-5h): {severity_medium} orders ({round(severity_medium / total_orders * 100, 1) if total_orders else 0}%)\n"
-            f"- Long (6+h): {severity_long} orders ({round(severity_long / total_orders * 100, 1) if total_orders else 0}%)\n\n"
+            f"- **Short (1-2h)**: **{severity_short}** orders (**{round(severity_short / total_orders * 100, 1) if total_orders else 0}%**)\n"
+            f"- **Medium (3-5h)**: **{severity_medium}** orders (**{round(severity_medium / total_orders * 100, 1) if total_orders else 0}%**)\n"
+            f"- **Long (6+h)**: **{severity_long}** orders (**{round(severity_long / total_orders * 100, 1) if total_orders else 0}%**)\n\n"
             f"**Top Affected Regions** (by delayed orders):\n{_fmt_top(top_regions)}\n\n"
             f"**Top Affected Weather Conditions**:\n{_fmt_top(top_weather)}\n\n"
             f"**Top Affected Delivery Partners**:\n{_fmt_top(top_partners)}\n\n"

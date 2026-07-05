@@ -29,8 +29,13 @@ PREDICT_FEATURE_NAMES = {
     # English equivalents the LLM writes
     "schedule risk", "vehicle load strain", "km per expected hour",
     "vehicle type", "load strain", "km per",
+    "mode urgency", "weather severity", "carrier avg schedule",
+    "carrier average schedule", "weight x distance", "weight-distance",
+    "cost per kg",
     # Snake-case fallback in case the LLM uses them verbatim
     "schedule_risk", "vehicle_load_strain", "km_per_expected_hr", "vehicle_type",
+    "mode_urgency", "weather_severity", "carrier_avg_schedule",
+    "weight_x_distance", "cost_per_kg",
 }
 
 # ── SLA grounding keywords the recommend agent must include in sla_reference ──

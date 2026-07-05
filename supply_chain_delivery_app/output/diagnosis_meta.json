@@ -1,1 +1,1 @@
-{"diagnosis_summary": "Not run."}
+{"diagnosis_summary": "### Delay Pattern Diagnosis: Today vs Historical\n\n**Overall**\n- Today processed **5,000** deliveries with **1,346** delayed -- a delay rate of **26.9%**.\n- Historically, the baseline is **20,000** deliveries with **5,335** delayed -- a delay rate of **26.7%**.\n- That means today is running **+0.3pp** above historical delay rate (**26.9%** vs **26.7%**), so overall performance is slightly worse.\n\n**Worsening Patterns**\n- **delivery_mode -- express**: **81.3%** today vs **73.9%** historical (**+7."}

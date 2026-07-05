@@ -169,7 +169,7 @@ flowchart TD
 
 **Critical design decisions this diagram illustrates:**
 
-- **3-layer prompt injection order** — security guardrails are assembled first in `build_instruction()`, making them impossible to override by later prompt sections or user input. Sub-agents never receive raw user text; they only receive structured inputs constructed by the master, so guardrails are correctly centralised.
+- **3-layer prompt injection order** — security guardrails are assembled first in `get_instruction()`, making them impossible to override by later prompt sections or user input. Sub-agents never receive raw user text; they only receive structured inputs constructed by the master, so guardrails are correctly centralised.
 - **Pydantic v2 contracts as reliability layer** — every specialist agent outputs a typed schema, not free text. MasterOutput aggregates all 11 fields. A hallucinated or structurally wrong response from any agent is caught and rejected before it reaches the UI.
 - **Agent-as-tool vs handoff pattern** — Master Orchestrator retains control throughout (agent-as-tool), rather than handing off to a sub-agent that then controls execution (swarms pattern). This enables central error handling, retry logic, and guaranteed sequential dependency.
 - **3-stage RAG for grounded recommendations** — using a cross-encoder re-ranker (ms-marco-MiniLM-L-6-v2) as the final stage ensures the top-8 SLA chunks are genuinely the most semantically relevant, not just the closest cosine vectors. Recommendations cite real policy, not hallucinated best practices.

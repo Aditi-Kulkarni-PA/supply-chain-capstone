@@ -33,6 +33,8 @@ The prompting strategy for this system evolved through three distinct phases. Ea
 | 7.1 | Valid values list for filter/change parameters | Tool errors from invalid filter values | `delay_simulation.md` |
 | 7.2 | Row parity rule ("same number of rows as tool") | Partial enrichment (5-10 rows out of 50+) | `delay_simulation.md` |
 | 7.3 | Pydantic fields enforce concise comparative reason format | Free-form verbosity, inconsistent reason length | `delay_simulation.md` |
+| 8.1 | WYSIWYG loader — prompt files passed to agents verbatim; master's duplicated interaction rules replaced with a pointer to the shared behaviour layer | Sections outside Role/Goal/Backstory/Task silently dropped (predict agent saw 28% of its prompt); same rules fed to the master twice | All prompt files, `load_config.py` |
+| 8.2 | Testing-driven fixes: capped sample transcription (full results read from CSV on disk); synonym mapping to valid enums + tool-error passthrough; `chat_response` conversational contract + PLAN CONFIRMED tag; bold-values + plain-language summary rules | 241-row transcription collapsed to empty output; "severe weather" → invalid value reported as "ran, no changes"; questions forced into action plans + double confirmation; key numbers didn't stand out | `delay_simulation.md`, `master_expert.md`, `chatbot_behavior.md`, `predict_delivery_delays.md`, `diagnose_delay_patterns.md` |
 
 ---
 
@@ -50,7 +52,7 @@ The prompting strategy for this system evolved through three distinct phases. Ea
 
 6. **Move deterministic work to code, not prompts.** Email template selection and generation, database reads, and structured data extraction belong in Python tools — not in prompt instructions. The LLM adds value on interpretation, synthesis, and prose; it is unreliable as a templating engine at scale.
 
-7. **Coverage requirements need concrete, checkable language.** *"Enrich every row"* is weaker than *"return the same number of rows as the tool does"* — the latter gives the model a verifiable condition rather than a vague directive.
+7. **Coverage requirements need concrete, checkable language.** *"Enrich every row"* is weaker than *"return the same number of rows as the tool does"* — the latter gives the model a verifiable condition rather than a vague directive. Iteration 8 added the counterpart lesson: the condition must also be *achievable* — at 241 rows, structured transcription silently collapsed to nothing. Large row sets now flow through files on disk, with the LLM enriching only a capped sample.
 
 8. **RAG-grounded recommendations outperform prompt-grounded recommendations.** Injecting retrieved SLA sections into the tool output at call time produces more specific, citeable recommendations than pre-loading SLA content statically into the prompt — because the retrieval is query-specific to what's actually failing today.
 
@@ -149,7 +151,7 @@ These added no value over the structured columns already in the data. The model 
 
 ```
 Derived features available per row:
-- schedule_risk: km_per_expected_hr × mode_urgency (higher = tighter deadline)
+- schedule_risk: km_per_expected_hr × mode_urgency (higher = tighter deadline) *(definition later corrected — see note below)*
 - vehicle_load_strain: load_capacity × mode_urgency (higher = overloaded vehicle on urgent run)
 - km_per_expected_hr: distance_km / expected_delivery_time_hrs (planned speed pressure)
 - vehicle_type: Bike/Truck/Van — affects speed ceiling and weather sensitivity
@@ -261,6 +263,8 @@ The `diagnosis_summary` was still thin on root cause reasoning because the agent
 - risk_level: medium (30-40% delay rate), high (40-50%), critical (50%+)
 - weather_severity: clear=0, hot/cold=1, rainy/foggy=2, stormy=3
 - mode_urgency: standard=0, two_day=1, next_day=2, same_day=3
+
+_(Note: several of these glossary definitions were later found to be inconsistent with `feature_engineering_4.py` — e.g. `schedule_risk` is actually `weather_severity × mode_urgency`. Corrected across all prompts and design docs in Iteration 8; see `docs/23` §12.)_
 ```
 
 With these definitions in context, the Root Cause Analysis section began citing compound explanations (e.g. *"Same-day mode combined with stormy weather hits both schedule_risk and weather_severity simultaneously — the pattern_type 'mode_weather' at critical risk level confirms this as the primary driver"*) rather than surface-level observations.
@@ -441,4 +445,23 @@ This was enforced via the `SimulationRow` Pydantic model fields rather than free
 The simulation agent now: validates filter/change values against known enums, enriches every returned row (row count parity enforced), and produces compact comparative reasons (`original_severity → simulated_severity + causal factor`) rather than free-form prose.
 
 ---
+
+## Iteration 8 — WYSIWYG Prompt Loading & Conversational Master (2026-07-04)
+
+### What Changed
+
+A code review revealed that the loader was silently dropping every prompt section outside Role / Goal / Backstory / Task / Expected Output — agents never saw their Rules, few-shot examples, glossaries, or valid-value lists. The Role/Goal/Backstory recombination was a CrewAI-era pattern with no purpose under the OpenAI Agents SDK, so it was removed entirely: `get_instruction()` now passes each agent's `.md` file **verbatim** (WYSIWYG — what is written in the file is exactly what the model receives). The master agent keeps its three-layer assembly (security → behaviour → expert); the duplicated interaction rules inside `master_expert.md` were replaced with a pointer to the shared behaviour layer.
+
+### Follow-on Prompt Fixes (from end-to-end testing)
+
+| Prompt | Change |
+|---|---|
+| `delay_simulation.md` | Transcribe only the tool's capped row sample (full results read from CSV by the app); map informal wording to valid enums ("severe" → stormy); changed values go in `changes`, never `filters`; on tool error return an empty list instead of claiming success. |
+| `master_expert.md` | New `chat_response` contract — informational questions answered directly from fresh results without re-running tools; quote the simulation tool's error message instead of "no changes"; `[SYSTEM: PLAN CONFIRMED]` tag suppresses re-confirmation after the UI plan is accepted. |
+| `chatbot_behavior.md` | Distinguishes informational questions (direct answer) from action requests (plan → confirm → execute); PLAN CONFIRMED override rule. |
+| `predict_delivery_delays.md` / `diagnose_delay_patterns.md` | Plain-language intro sentences; bold every number, percentage, severity label, and category name so key figures stand out when skimming. |
+
+### Final State
+
+Prompt files are the single source of truth for agent behaviour — no hidden filtering between file and model. Confirmation happens exactly once (deterministic gate), the master answers questions conversationally via `chat_response`, and structured row data flows through files on disk rather than LLM transcription wherever volumes exceed what an LLM can copy reliably.
 
