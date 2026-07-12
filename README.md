@@ -1,4 +1,4 @@
-# AI-Powered Supply Chain Last-Mile Delivery Optimization
+# Supply Chain Last-Mile Delivery Optimization - AI Control Plane
 
 **IIIT Bangalore / upGrad — Post Graduate Diploma in ML & AI — Capstone Project**  
 **Author:** Aditi Kulkarni
