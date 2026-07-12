@@ -3,7 +3,7 @@
 **IIIT Bangalore / upGrad — Post Graduate Diploma in ML & AI — Capstone Project**  
 **Author:** Aditi Kulkarni
 
-> **Submission: Version 1 (Baseline).** This is the end-to-end functional, modular, reproducible baseline described in Section-23 [Current Implementation Status](#23-current-implementation-status). It is not the final submission — see Section-24 [Known Limitations](#24-known-limitations) for what's out of scope at this stage, and Section-25 [Potential Future Extensions](#25-potential-future-extensions) for the longer-term production roadmap.
+> **Final Submission: Version 2** This is the end-to-end functional, modular, reproducible system described in Section-23 [Current Implementation Status](#23-current-implementation-status). It is not a production-grade final version — see Section-24 [Known Limitations](#24-known-limitations) for what's out of scope at this stage, and Section-25 [Potential Future Extensions](#25-potential-future-extensions) for the longer-term production roadmap.
 
 ---
 
@@ -92,8 +92,8 @@ The primary training dataset contains 25,000 historical delivery records represe
 |---|---|
 | **Source file** | `prediction_pipeline/data/raw/Delivery_Logistics.csv` |
 | **Origin** | [Delivery Logistics Dataset (India – Multi-Partner)](https://www.kaggle.com/datasets/kundanbedmutha/delivery-logistics-dataset-india-multi-partner) — Kaggle, publicly available |
-| **Type** | 25 000 historical delivery records across 5 regions, 4 delivery modes, multiple partners |
-| **Licence** | Kaggle dataset licence (publicly available for research use) |
+| **Type** | 25 000 historical delivery records across 5 regions, 4 delivery modes, multiple partners. dataset is synthetically generated, it contains no personal information and is safe for academic, analytical, or business-oriented research. |
+| **Licence** | [CC BY 4.0 — Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/) : You are free to: (a) Share — copy and redistribute the material in any medium or format for any purpose, even commercially. (b) Adapt — remix, transform, and build upon the material for any purpose, even commercially. (c) The licensor cannot revoke these freedoms as long as you follow the license terms.|
 | **Daily test data** | `generate_daily_test_data_11.py` resamples and updates `Delivery_Logistics.csv` to produce daily inference batches (5 000 rows, 74/26 on-time/delayed ratio) — project-owned, restricted access |
 
 ### SLA / Policy Corpus (RAG Knowledge Base)
@@ -986,7 +986,39 @@ The eval report's top-level Summary section shows a dedicated RAG Evaluation (RA
 
 ### 20.4 Human Baseline Calibration
 
-Agent outputs were independently scored by a human reviewer on the same three dimensions (Relevance, Faithfulness, Safety, 1–5 scale) and compared against the LLM judge scores.
+> **Note:** Human baseline calibrated on **5 representative samples** and is **not** a full evaluation dataset.
+
+### Overall Human Evaluation of Agents
+
+| **Agent** | **Human Relevance** | **Human Faithfulness** | **Human Safety** | **Mean** | **Result** |
+|------------|:-------------------:|:----------------------:|:----------------:|---------:|:----------:|
+| Predict Delivery Delays | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
+| Diagnose Delay Patterns | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
+| Recommendation Expert | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
+| Simulate Delay Prediction | 3.0/5 | 3.0/5 | 5.0/5 | **3.67** | ⚠️ PARTIAL |
+| Email Alert Agent | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
+
+#### Predict Delivery Sample Records - LLM Inferences from Features
+
+| **Delivery ID** | **Human Relevance** | **Human Faithfulness** | **Human Safety** | **Mean** | **Result** |
+|----------------:|:-------------------:|:----------------------:|:----------------:|---------:|:----------:|
+| 16535 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
+| 3775 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
+| 8841 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
+
+#### Simulation Sample Records - LLM Inferences from Features
+
+| **Delivery ID** | **Human Relevance** | **Human Faithfulness** | **Human Safety** | **Mean** | **Result** |
+|----------------:|:-------------------:|:----------------------:|:----------------:|---------:|:----------:|
+| 3775 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
+| 8841 | 3.0/5 | 5.0/5 | 5.0/5 | **4.33** |  PASS |
+| 23052 | 4.0/5 | 5.0/5 | 5.0/5 | **4.66** |  PASS |
+| 23679 | 4.0/5 | 5.0/5 | 5.0/5 | **4.66** |  PASS |
+| 7826 | 2.0/5 | 5.0/5 | 5.0/5 | **4.00** |  PASS |
+
+#### Human Baseline vs LLM-as-a-Judge Comparison
+
+>Agent outputs were independently scored by a human reviewer on the same three dimensions (Relevance, Faithfulness, Safety, 1–5 scale), and compared against the LLM judge scores. 
 
 | Agent | LLM Mean | Human Mean | Notes |
 |-------|----------|------------|-------|
@@ -996,7 +1028,7 @@ Agent outputs were independently scored by a human reviewer on the same three di
 | Simulate Delay Prediction | 4.00 | 3.67 | Aligned (diff -0.33) — lowest-scoring agent of the five, simulation quality has the most room to improve |
 | Email Alert Agent | 5.00 | 5.00 | Aligned |
 
-**Reviewer note on model choice:** GPT-4.1-mini resulted in output of lower quality with human relevance scores of 2–3; GPT-5.4 produced better quality with scores of 5. This confirms GPT-5.4 as the appropriate model for this complexity.
+>**Reviewer note on model choice:** GPT-4.1-mini resulted in output of lower quality with human relevance scores of 2–3; GPT-5.4 produced better quality with scores of 5. This confirms GPT-5.4 as the appropriate model for this complexity.
 
 Human scores: **[`evals/human_baseline/human_scores.xls`](evals/human_baseline/human_scores.xls)**  
 Baseline report: **[`evals/reports/`](evals/reports/)**
