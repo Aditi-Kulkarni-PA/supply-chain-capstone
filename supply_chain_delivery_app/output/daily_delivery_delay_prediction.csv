@@ -1,5 +1,5 @@
 delivery_id,delivery_partner,package_type,delivery_mode,region,weather_condition,distance_km,package_weight_kg,predict_severity_label,vehicle_type,km_per_expected_hr,mode_urgency,schedule_risk,vehicle_load_strain,carrier_avg_schedule,weather_severity,weight_x_distance,cost_per_kg,delay_reason,llm_insights,email_template_name,email_content
-16535.0,ecom express,electronics,express,north,clear,278.4,27.69,Short (1-2h),truck,39.21,3,0,1927.22,16.3949,0,7708.896,54.8783735156531,"express delivery, long distance (278 km), heavy package (27.7 kg)","This delay is driven by an extremely tight schedule window: km_per_expected_hr=39.21 is far above the partner baseline carrier_avg_schedule=16.3949, and vehicle_load_strain=1927.22 is high for a 278.4km route with a 27.69kg load. Even in clear weather, the truck is being asked to cover a long express route with minimal slack, which fits a Short delay from schedule compression rather than disruption.",Short,"Subject: Delivery Update -- Minor Delay for Order 16535
+16535.0,ecom express,electronics,express,north,clear,278.4,27.69,Short (1-2h),truck,39.21,3,0,1927.22,16.3949,0,7708.896,54.8783735156531,"express delivery, long distance (278 km), heavy package (27.7 kg)","This delay is driven mainly by an extremely tight express schedule: km_per_expected_hr **39.21** is far above the partner’s carrier_avg_schedule **16.39**, and vehicle_load_strain **1927.22** is high even on a truck. Clear weather keeps schedule_risk at **0**, so this looks like a planning-capacity miss rather than a disruption-driven delay.",Short,"Subject: Delivery Update -- Minor Delay for Order 16535
 
 Dear Valued Customer,
 
@@ -11,7 +11,7 @@ Track your order: https://track.example.com/16535
 
 Best regards,
 Customer Experience Team"
-3775.0,dhl,groceries,express,east,stormy,247.7,29.77,Long (6+h),truck,40.61,3,12,1843.51,15.3714,4,7374.029,46.126883160361565,"stormy weather, express delivery, long distance (248 km), heavy package (29.8 kg)","Storm conditions push schedule_risk to 12, and km_per_expected_hr=40.61 shows one of the most aggressive windows in the sample relative to carrier_avg_schedule=15.3714. Combined with vehicle_load_strain=1843.51 over 247.7km and 29.77kg, this is a classic compounding case where weather and schedule tightness escalate the order into a Long delay.",Long,"Subject: Urgent -- Significant Delay for Order 3775
+3775.0,dhl,groceries,express,east,stormy,247.7,29.77,Long (6+h),truck,40.61,3,12,1843.51,15.3714,4,7374.029,46.126883160361565,"stormy weather, express delivery, long distance (248 km), heavy package (29.8 kg)","The long delay comes from a compounded pressure stack: schedule_risk **12** under stormy express conditions combines with km_per_expected_hr **40.61**, far above the carrier_avg_schedule **15.37**. Even with a truck, vehicle_load_strain **1843.51** on a **247.7 km** route leaves little recovery room, pushing this into **Long (6+h)** territory.",Long,"Subject: Urgent -- Significant Delay for Order 3775
 
 Dear Valued Customer,
 
@@ -29,7 +29,7 @@ Support: support@example.com | 1-800-DELIVERY
 
 Best regards,
 Customer Experience Team"
-8841.0,ekart,clothing,express,east,stormy,250.3,31.07,Long (6+h),van,35.25,3,12,2592.27,16.5184,4,7776.821000000001,44.74526788578761,"stormy weather, express delivery, long distance (250 km), heavy package (31.1 kg)","This order stacks storm-driven schedule_risk=12 with very high vehicle_load_strain=2592.27 and weight_x_distance=7776.82 on a 250.3km express route. Km_per_expected_hr=35.25 is also well above the partner norm, so the van is carrying both route burden and timing pressure, making a Long delay operationally likely.",Long,"Subject: Urgent -- Significant Delay for Order 8841
+8841.0,ekart,clothing,express,east,stormy,250.3,31.07,Long (6+h),van,35.25,3,12,2592.27,16.5184,4,7776.821000000001,44.74526788578761,"stormy weather, express delivery, long distance (250 km), heavy package (31.1 kg)","Storm exposure and route economics are both severe here: schedule_risk **12** and km_per_expected_hr **35.25** create a tight express window, while vehicle_load_strain **2592.27** is very high for a van over **250.3 km**. The combination of weather_severity **4** and heavy weight_x_distance **7776.82** explains the **Long (6+h)** outcome.",Long,"Subject: Urgent -- Significant Delay for Order 8841
 
 Dear Valued Customer,
 

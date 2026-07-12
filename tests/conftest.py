@@ -22,6 +22,15 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     skipped = stats.get("skipped", [])
     total = len(passed) + len(failed) + len(errors) + len(skipped)
 
+    if total == 0:
+        # No tests actually ran (e.g. --collect-only, or a filter that matched
+        # nothing) — leave the last real report alone instead of overwriting
+        # it with a bogus all-zero result.
+        terminalreporter.write_line(
+            "\nNo tests ran — smoke_test_report.md left unchanged."
+        )
+        return
+
     overall = "PASSED" if not failed and not errors else "FAILED"
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 

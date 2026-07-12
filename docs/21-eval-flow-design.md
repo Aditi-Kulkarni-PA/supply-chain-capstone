@@ -29,7 +29,7 @@ The RAG pipeline (`retrieve_sla_context`) is embedded inside `recommend_actions`
 3. **Isolated eval DBs**: Evals write to `evals/db/delivery_predictions_eval.db` and `evals/db/delivery_predictions_eval_ragas.db`. Production DB is never touched.
 4. **Full production input**: All evals run against the full 5 000-row input (`daily_delivery_logistics_1.csv`). The judge evaluates final text output — cost is determined by output length, not input size.
 5. **LLM-as-judge on all 5 agents**: One LLM call per agent scoring relevance, faithfulness, and safety on a 1–5 scale.
-6. **RAGAS on full pipeline path**: `retrieve_sla_context` is always called inside `recommend_actions()`. The RAGAS eval runs the full chain end-to-end and scores faithfulness and answer relevancy against the retrieved SLA context.
+6. **RAGAS on real recommendation output, sampled per-topic**: `recommend_actions()` runs once per eval, same as production. RAGAS then scores faithfulness/answer-relevancy per distinct SLA topic cited in the output (see §6) rather than one blended sample — see "Update (2026-07-12)" at the bottom of this doc below for why.
 7. **Structured output as ground truth**: Pydantic models define the schema contract — passing schema validation is the baseline check for every agent.
 
 ---
@@ -40,7 +40,7 @@ The RAG pipeline (`retrieve_sla_context`) is embedded inside `recommend_actions`
 0_supply_chain_capstone/
 └── evals/
     ├── conftest.py              # shared pytest fixtures, report writer
-    ├── pytest.ini               # registers ragas marker, asyncio_mode=auto
+    ├── pytest.ini               # asyncio_mode=auto (no ragas marker — RAGAS runs in the default suite)
     ├── eval_config.py           # thresholds and dataset paths
     ├── judge.py                 # LLM-as-judge helper
     ├── test_eval_predict.py     # MCP: predict agent
@@ -48,7 +48,7 @@ The RAG pipeline (`retrieve_sla_context`) is embedded inside `recommend_actions`
     ├── test_eval_simulate.py    # MCP: simulate agent
     ├── test_eval_recommend.py   # Function tool: recommend agent + inline RAG grounding
     ├── test_eval_email.py       # Function tool: email agent
-    ├── test_eval_rag.py         # RAGAS: full pipeline RAG path — gated @ragas
+    ├── test_eval_rag.py         # RAGAS: per-topic multi-sample eval over recommendation output
     ├── db/                      # eval-only SQLite DBs (never production)
     │   ├── delivery_predictions_eval.db        # standard agent evals
     │   └── delivery_predictions_eval_ragas.db  # RAGAS eval
@@ -220,24 +220,32 @@ The judge scores each agent's output on three dimensions (1–5 scale). Pass thr
 
 ---
 
-### 6. RAG Eval (`test_eval_rag.py`) — RAGAS on the real pipeline path
+### 6. RAG Eval (`test_eval_rag.py`) — RAGAS, sampled per SLA topic
 
-**Gated:** carries `@pytest.mark.ragas`. Included in the full `uv run pytest evals/ -v` run.
+**Not gated.** Runs as part of the default `uv run pytest evals/ -v` suite — no flag or marker needed.
 
-#### Why there is no standalone retrieval test
+#### Why per-topic sampling instead of one blended query
 
-`retrieve_sla_context` is always called from inside `recommend_actions()`. Its input is the aggregated markdown built from DB stats, then condensed by `_summarize_query()` before embedding. Testing retrieval with hand-crafted standalone queries would bypass `_summarize_query()` and test a code path that never runs in production.
+The recommendation agent's instruction is fixed (`"Recommend ways to optimize delivery timelines and reduce delays"`) — it never varies run to run, so varying *that* query wouldn't give RAGAS a meaningful spread of samples to average over. The original design ran `recommend_actions()` once, concatenated every `sla_reference` citation into one response string, and scored it against one shared retrieved-context block as a single `n=1` RAGAS sample. That is a genuinely noisy setup: RAGAS's Faithfulness metric has an LLM decompose the response into atomic claims and judge each against context, and with n=1 there is no averaging to smooth out that judge LLM's own run-to-run variance — observed faithfulness swung ~0.80–0.94 across identical, unchanged code.
+
+The fix isn't a retrieval-depth tweak (we tested narrowing the final rerank to top-5 and broadening upstream retrieval — neither reliably improved or stabilized the score; broadening made the spread *worse*). Instead: the recommendation agent's **output** naturally cites several distinct SLA topics per run — a quick-win about weather policy, a short-term about partner benchmarks, a long-term about distance rules. `retrieve_sla_context()` gained an optional `query_override` param so the eval can issue a **separate, independently-retrieved query per topic**, bypassing `_summarize_query()`'s tool-output heuristic on purpose (that heuristic is still exercised for real inside `recommend_actions()` — this override exists only for eval sampling, not production).
 
 #### What it tests
 
-Runs `recommendation_agent` against the production-scale RAGAS DB. Extracts the `--- SLA Knowledge Context ---` block from the tool output. Evaluates only the `sla_reference` fields against the SLA context block — scoping faithfulness to SLA grounding, not data-driven claims from the prediction DB.
+1. Runs `recommendation_agent` once against the eval DB (unchanged from before).
+2. Selects up to 2 `recommended_actions` per category (quick-win / short-term / long-term) with a non-empty `sla_reference`.
+3. For each selected action, builds a topic query — `"What does the SLA say about {dimension} — {action}?"` — and calls `retrieve_sla_context(tool_output="", query_override=topic_query)` to retrieve that topic's own SLA chunks independently.
+4. Builds one RAGAS `SingleTurnSample` per topic (`response=action.sla_reference`, `retrieved_contexts=<that topic's chunks>`) — a real `n≈6` dataset.
+5. Scores the mean faithfulness/answer_relevancy across all topics, and reports a per-topic breakdown table (category, dimension, action, faithfulness, relevancy) alongside the aggregate — so a low score is attributable to a specific SLA citation, not lost inside one blended number.
 
-**RAGAS Metrics:**
+**RAGAS Metrics (mean across ~6 topic samples):**
 
 | Metric | What it measures | Target |
 |--------|-----------------|--------|
-| `faithfulness` | SLA reference claims stay within the retrieved SLA context — no hallucinated policies | ≥ 0.55 |
-| `answer_relevancy` | Recommendations address the actual delay patterns in the data | ≥ 0.60 |
+| `faithfulness` | SLA reference claims stay within their own topic's retrieved SLA context — no hallucinated policies | ≥ 0.55 |
+| `answer_relevancy` | Each `sla_reference` actually answers its topic's question | ≥ 0.60 |
+
+**Known limitation:** averaging 6 topics did not eliminate run-to-run variance in the aggregate score (observed range ~0.76–0.91 faithfulness across repeated runs) — RAGAS's per-claim judging noise persists at this sample size. What changed is diagnostic: the per-topic table now shows *which* citation was weak on a given run (it isn't the same topic each time), which is actionable in a way a single blended score never was.
 
 ---
 
@@ -256,7 +264,7 @@ uv run pytest evals/ -v
     test_eval_simulate.py    → delay_simulation_agent           → schema + LLM-as-judge
     test_eval_recommend.py   → recommendation_agent             → schema + RAG grounding + LLM-as-judge
     test_eval_email.py       → email_alert_agent                → schema + LLM-as-judge
-    test_eval_rag.py         → recommendation_agent (RAGAS DB)  → RAGAS faithfulness + answer_relevancy
+    test_eval_rag.py         → recommendation_agent (eval DB)   → RAGAS faithfulness + answer_relevancy, per SLA topic (n≈6)
 
   Session end
     └── evals/reports/eval_report_<timestamp>.md written
@@ -270,7 +278,7 @@ uv run pytest evals/ -v
 |-----------------|--------|
 | `delivery_agents.py` | untouched |
 | `delivery_chat_app.py` | untouched |
-| `tools/` | untouched |
+| `tools/` | one addition: `rag_knowledge.py`'s `retrieve_sla_context()` gained an optional `query_override` param (see "Update (2026-07-12)" at the bottom of this doc) — production call sites don't pass it, so production behavior is unchanged |
 | `config/` | untouched |
 | `helpers/` | untouched |
 | `prediction_pipeline/` | untouched |
@@ -291,4 +299,47 @@ eval run — while human scores continue to come from `human_scores.xls`
 (never modified). The `llm_*` columns in the XLS are used only as a fallback
 when no eval run has been recorded, and the report header states which source
 was used.
+
+---
+
+## Update (2026-07-12) — Per-Topic RAGAS Sampling
+
+**Also fixed the same session:** `test_eval_predict.py` was judging `predict_summary`
+and per-row `llm_insights` as one blended text; the summary's length crowded the
+insights out of the report's truncated output block. Split into two judge calls
+(`Predict Delivery Delays — Summary` / `— LLM Insights`); `judge.grouped_scores()`
+averages per-part records with a matching `" — "` prefix back into one row for the
+top-level report table and `judge_scores_latest.json`, so the human-baseline
+comparison still matches on the plain agent name. `conftest.py`'s report
+truncation was raised 3000→5500 chars (also applied to the judge's own input
+truncation in `judge.py`) so both parts render in full.
+
+**RAG eval redesign:** `test_eval_rag.py` previously ran RAGAS on a single
+blended sample (all `sla_reference` citations concatenated, scored against one
+shared retrieved-context block) — genuinely `n=1`. Observed faithfulness swung
+~0.80–0.94 across otherwise-identical runs (verified by rerunning with zero code
+changes), which is expected for a single-sample LLM-judge metric but made a real
+score drop indistinguishable from noise.
+
+Two retrieval-depth hypotheses were tested and rejected before the redesign:
+narrowing the final cross-encoder rerank stage from top-8 to top-5 (single run:
+0.786 faithfulness — no better than baseline), and broadening upstream retrieval
+from `TOP_K=15/HYBRID_PRE_FILTER_N=12` to `20/16` (two runs: 0.696 and 1.000 —
+*wider* spread, not narrower). Both were reverted; `rag_knowledge.py`'s retrieval
+constants are unchanged from the original committed values.
+
+The actual fix, per repo owner direction: since the recommendation agent's own
+instruction never varies, vary the *retrieval query* per distinct SLA topic the
+agent's output already cites instead. See §6 above for the resulting design —
+`query_override` on `retrieve_sla_context()`, up to 2 sampled actions per
+category, one RAGAS sample per topic (n≈6), plus a per-topic breakdown table in
+the report. `conftest.py`'s RAG→Recommendation merge logic (which folds RAGAS
+scores into the `Recommendation Expert Agent` row when both tests run in one
+session) was extended to also carry over the per-topic breakdown text, which the
+merge previously discarded.
+
+Net result: the aggregate score is still noisy run to run (observed ~0.76–0.91)
+— per-topic sampling didn't fix that, and neither did the retrieval-depth
+changes — but the report now shows *which* topic was weak on a given run, which
+the single blended score never could.
 

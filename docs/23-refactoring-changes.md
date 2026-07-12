@@ -1,6 +1,6 @@
 # 23 — Code Simplification, Consistency Refactoring & Test-Driven Fixes
 
-**Dates:** 2026-07-04 → 2026-07-05
+**Dates:** 2026-07-04 → 2026-07-12
 **Scope:** started as `supply_chain_delivery_app/` only (§1–§9); test-driven fixes later extended into `prediction_pipeline/` (simulate tool, `daily_predict.py`, DB metadata) and `evals/` (conftest judge-score export, human-baseline source, `eval_config.py`) — each extension documented in its section.
 **Constraint honored:** no folder names, file names, agent names, or tool names were changed. One stray duplicate prompt file was deleted (approved).
 
@@ -22,6 +22,8 @@
 | 18 | Operator-visible run warnings; recommend logging; CrewAI heading renames (Purpose/Objective/Context) | Observability |
 | 19 | Loader fully uniform — master layering via `@include` in master_expert.md | Architecture |
 | 20 | Helper dead-code audit (zero dead; two trivial helpers folded in) | Cleanup |
+| 21 | Eval instructions audit — docs matched to actual behaviour (ragas gating fiction removed, `--agent master` removed, output listings completed) | Eval |
+| 22 | Predict judge-score split (summary vs. per-row insights) + RAG eval redesign to per-topic RAGAS sampling | Eval |
 
 Documentation was kept in sync throughout: READMEs, `docs/01/03/05/08/09/11–15/18–21` updated per change; Iteration 8 rows added to the prompt evolution log and README version-history tables; Format-agent status notes placed across all documents.
 
@@ -869,4 +871,71 @@ Audit of the eval run instructions in README and docs/21 against
    run writes: eval_report_<ts>.md, judge_scores_<ts>.json,
    judge_scores_latest.json (merged; feeds the human baseline),
    human_baseline_report_<ts>.md, and the raw pytest JSON.
+
+---
+
+## 22. Predict judge-score split + RAG eval redesign (2026-07-12)
+
+**Part A — predict summary was crowding out per-row insights in the report.**
+`test_eval_predict.py`'s judge call combined the verbose `predict_summary`
+(~2500 chars) with 5 rows of per-delivery `llm_insights` into one text blob;
+`conftest.py`'s 3000-char report-display truncation let the summary consume
+nearly the whole budget, so the generated report showed the summary and cut
+off after the first insight row. Fixed by splitting into two separate judge
+calls (`test_predict_summary_judge_score` / `test_predict_insights_judge_score`,
+agent names `"Predict Delivery Delays — Summary"` / `"— LLM Insights"`), and
+raising the truncation limit 3000/4000 → 5500 chars in both `conftest.py`
+(report display) and `judge.py` (judge input prompt) so nothing gets cut off.
+Added `judge.grouped_scores()` — collapses records sharing a `" — "`-prefixed
+base agent name back into one averaged row for the top-level report table and
+`judge_scores_latest.json`, so `test_eval_human_baseline.py`'s lookup by plain
+agent name (`"Predict Delivery Delays"`) still matches. Net eval count: 43 → 44.
+
+**Part B — RAG eval redesigned from one blended sample to per-topic sampling.**
+`test_eval_rag.py` previously ran RAGAS on a single `n=1` sample: every
+`sla_reference` citation concatenated into one response, scored against one
+shared retrieved-context block. Rerunning with zero code changes showed
+faithfulness swinging ~0.80–0.94 — expected for a single-sample LLM-judge
+metric, but indistinguishable from a real regression when read as one number.
+
+Two retrieval-depth hypotheses were tested and rejected before settling on the
+real fix: narrowing the final cross-encoder rerank stage from top-8 to top-5
+(single run: 0.786, no better than baseline) and broadening upstream retrieval
+from `TOP_K=15/HYBRID_PRE_FILTER_N=12` to `20/16` (two runs: 0.696 and 1.000 —
+wider spread, not narrower). Both reverted; `rag_knowledge.py`'s retrieval
+constants are unchanged from the original committed values.
+
+Root insight (repo owner's call): the recommendation agent's own instruction
+never varies run to run, so varying *that* query gives RAGAS nothing to
+average over. Its **output**, however, naturally cites several distinct SLA
+topics per run. Fix: `retrieve_sla_context()` gained an optional
+`query_override` param (production call sites don't pass it — behavior
+unchanged); the eval now samples up to 2 `recommended_actions` per category
+(quick-win/short-term/long-term), issues one independently-retrieved query per
+topic, and builds one RAGAS sample per topic (n≈6) instead of one blended
+sample — plus a per-topic breakdown table (category, dimension, action,
+faithfulness, relevancy) in the report.
+
+This didn't eliminate run-to-run variance in the aggregate (observed ~0.76–0.91
+faithfulness across repeated runs since the redesign) — RAGAS's per-claim
+judging noise persists at n≈6. What changed is diagnostic: the report now
+names which specific topic scored low on a given run (not the same topic each
+time), instead of hiding that signal inside one opaque blended score.
+
+**Incidental fix, same session:** `conftest.py`'s RAG→Recommendation merge
+(folds RAGAS scores into the `Recommendation Expert Agent` row when both tests
+run in one session) only carried over the numeric `ragas_scores`, silently
+dropping the new per-topic breakdown text on full-suite runs. Extended to
+append the breakdown into the merged record's output too.
+
+**Unrelated, same session:** `tests/conftest.py`'s `pytest_terminal_summary`
+hook wrote `smoke_test_report.md` unconditionally, including when zero tests
+actually ran (e.g. `pytest tests/ --collect-only`) — overwriting a real
+40/40 report with a bogus all-zero one. Added a guard: if no tests ran, leave
+the existing report untouched.
+
+Docs updated to match: `README.md` §20.2 (predict averaging note), §20.3 and
+§21.5/21.6 (RAG eval numbers and per-topic design), and `docs/21-eval-flow-design.md`
+(§6 rewritten; stale `ragas`-marker/gating text left over from §21's audit
+also cleaned up; dated update note added).
 

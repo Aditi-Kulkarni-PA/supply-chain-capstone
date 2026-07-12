@@ -287,12 +287,15 @@ def _cross_encoder_rerank(query: str, candidates: list[tuple[str, float]],
 # Public API: retrieve SLA knowledge for a recommendation query
 # ---------------------------------------------------------------------------
 
-def retrieve_sla_context(tool_output: str, rerank_top_n: int = _RERANK_TOP_N) -> str:
+def retrieve_sla_context(
+    tool_output: str, rerank_top_n: int = _RERANK_TOP_N, query_override: str | None = None,
+) -> str:
     """Given the raw output from recommend_actions(),
     retrieve the most relevant SLA knowledge chunks.
 
     Two-stage retrieval pipeline:
-    1. Summarize the tool output into a focused query
+    1. Summarize the tool output into a focused query (or use query_override verbatim —
+       lets callers, e.g. evals, retrieve for a specific topic/query directly)
     2. Embed the query (OpenAI text-embedding-3-small)
     3. Retrieve top-K candidates from ChromaDB (cosine similarity)
     4. Hybrid pre-filter: 0.7×cosine + 0.3×keyword overlap → top-8
@@ -305,8 +308,8 @@ def retrieve_sla_context(tool_output: str, rerank_top_n: int = _RERANK_TOP_N) ->
         _LOGGER.warning("rag.retrieve.no_source_file path=%s", _SLA_FILE)
         return "[RAG] No SLA knowledge file found."
 
-    # 1. Summarize
-    query = _summarize_query(tool_output)
+    # 1. Summarize (or use caller-supplied query verbatim)
+    query = query_override.strip() if query_override else _summarize_query(tool_output)
     if not query.strip():
         query = "delivery SLA performance targets delay thresholds partner benchmarks"
 

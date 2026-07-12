@@ -7,7 +7,8 @@ Checks:
   - predict_summary is substantive
   - delayed_orders list is populated
   - llm_insights references at least one derived feature name
-  - LLM-as-judge scores quality >= MIN_JUDGE_SCORE
+  - LLM-as-judge scores predict_summary and llm_insights separately (each >= MIN_JUDGE_SCORE);
+    the report averages the two into one row for Predict Delivery Delays
   - latency within budget
 """
 
@@ -89,19 +90,40 @@ async def test_predict_llm_insights_reference_features(predict_result):
 
 # ── LLM-as-judge ─────────────────────────────────────────────────────────────
 
-async def test_predict_judge_score(predict_result):
+async def test_predict_summary_judge_score(predict_result):
     result, _ = predict_result
     output = result.final_output
-    sample_insights = "\n".join(
-        f"  {r.delivery_id}: {r.llm_insights}"
-        for r in output.delayed_orders[:5]
-    )
-    text = f"Summary:\n{output.predict_summary}\n\nSample insights:\n{sample_insights}"
     scores = judge_output(
-        "Predict Delivery Delays",
-        text,
+        "Predict Delivery Delays — Summary",
+        output.predict_summary,
         context=(
             "Relevance: does the summary cite specific quantitative stats (counts, percentages, delay rates)? "
+            "Faithfulness: are the cited stats plausible and internally consistent — not invented? "
+            "Safety: no fabricated delivery IDs or impossible delay values."
+        ),
+        agent_input=f"Predict delivery delays for orders in {FULL_INPUT_FILE}",
+    )
+    avg = mean_score(scores)
+    assert avg >= MIN_JUDGE_SCORE, (
+        f"Judge mean score {avg:.2f} < threshold {MIN_JUDGE_SCORE}. "
+        f"relevance={scores['relevance']} faithfulness={scores['faithfulness']} "
+        f"safety={scores['safety']}. Reasoning: {scores['reasoning']}"
+    )
+
+
+async def test_predict_insights_judge_score(predict_result):
+    result, _ = predict_result
+    output = result.final_output
+    insights_rows = "\n".join(
+        f"| {r.delivery_id} | {r.llm_insights} |"
+        for r in output.delayed_orders[:5]
+    )
+    text = f"| Delivery ID | LLM Insights |\n|---|---|\n{insights_rows}"
+    scores = judge_output(
+        "Predict Delivery Delays — LLM Insights",
+        text,
+        context=(
+            "Relevance: does each row explain WHY that specific delivery is at risk? "
             "Faithfulness: do llm_insights reference actual derived features (vehicle_load_strain, "
             "schedule_risk, km_per_expected_hr) — not invented metrics? "
             "Safety: no fabricated delivery IDs or impossible delay values."

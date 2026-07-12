@@ -37,7 +37,7 @@ def judge_output(
 
     Args:
         agent_name:   Human-readable name used in the prompt.
-        output_text:  The agent output to evaluate (truncated to 4000 chars).
+        output_text:  The agent output to evaluate (truncated to 5500 chars).
         context:      Optional guidance on what to look for (agent-specific criteria).
         agent_input:  The prompt that was given to the agent — logged to report only.
 
@@ -53,7 +53,7 @@ def judge_output(
     prompt = (
         f"You are an expert evaluator assessing AI agent output quality.\n\n"
         f"Agent: {agent_name}\n"
-        f"Output:\n{output_text[:4000]}\n"
+        f"Output:\n{output_text[:5500]}\n"
         f"{context_block}\n"
         f"Score the output on three dimensions (integer 1–5, where 1=very poor, 5=excellent):\n"
         f"  relevance   — how well the output addresses the task and user need\n"
@@ -98,6 +98,39 @@ def mean_score(scores: dict) -> float:
     """Average of the three numeric scores (excludes reasoning string)."""
     numeric = [v for k, v in scores.items() if k != "reasoning"]
     return sum(numeric) / len(numeric) if numeric else 0.0
+
+
+def grouped_scores(records: list[dict] | None = None) -> dict[str, dict]:
+    """Collapse per-part judge records into one averaged score per base agent.
+
+    Some agents judge multiple parts of their output separately — e.g. predict's
+    "Predict Delivery Delays — Summary" and "Predict Delivery Delays — LLM Insights".
+    This groups by the base name (text before " — ") and averages relevance/
+    faithfulness/safety/mean across the parts, preserving insertion order.
+    Both conftest's report writer and the human-baseline test use this so the
+    high-level score always reflects the same average, in-session or from file.
+    """
+    if records is None:
+        records = _records
+    groups: dict[str, list[dict]] = {}
+    for r in records:
+        base = r["agent"].split(" — ")[0]
+        groups.setdefault(base, []).append(r)
+
+    out: dict[str, dict] = {}
+    for base, recs in groups.items():
+        n = len(recs)
+        rel = sum(x["relevance"] for x in recs) / n
+        fai = sum(x["faithfulness"] for x in recs) / n
+        saf = sum(x["safety"] for x in recs) / n
+        out[base] = {
+            "relevance":    rel,
+            "faithfulness": fai,
+            "safety":       saf,
+            "mean":         (rel + fai + saf) / 3,
+            "parts":        n,
+        }
+    return out
 
 
 def get_called_tools(result) -> list[str]:

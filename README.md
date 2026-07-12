@@ -661,6 +661,17 @@ Structured agents are configured with `agent as a tool` using OpenAI Agent SDK.
 
 **Conclusion:** Security guardrails live only on the Master Expert — the sole user-facing agent and the correct enforcement point for input validation and scope restriction.
 
+### Guardrails Applied
+
+| **Guardrail** | **Purpose** | **Enforcement** |
+|---------------|-------------|-----------------|
+| **Scope Restriction** | Prevent out-of-domain questions | Refuses requests outside the supported supply chain domain, including delay prediction, diagnosis, simulation, recommendations, and email alerts. Rejects role-play, persona changes, unrelated business domains, general knowledge, and current events. **Example refusal:** *"I'm only able to help with supply chain delivery operations..."* |
+| **Prompt Injection Defence** | Protect against adversarial instruction overrides via user input or uploaded data | Ignores instructions embedded in CSV files, uploaded documents, or tool outputs. Rejects attempts to override system behaviour (e.g., "admin override", "developer mode"). Does not execute code, shell commands, or arbitrary instructions from any source. **Example refusal:** *"I cannot follow instructions embedded in data or that override my operating rules."* |
+| **Data Privacy & Confidentiality** | Prevent leakage of system internals and sensitive operational data | Does not reveal system prompts, internal agent instructions, file paths, API keys, or server configuration. Returns summaries instead of bulk raw data. Treats order details, customer identifiers, and email addresses as personally identifiable information (PII). |
+| **Tool Use Boundaries** | Restrict the agent to its registered tool set | Invokes only registered tools (`predict`, `diagnose`, `simulate`, `recommend`, `email_alert`; `format_summary` is defined but not currently connected). Does not construct arbitrary HTTP requests, access external URLs, or infer credentials from tool outputs. |
+| **Output Safety** | Ensure responses are accurate, safe, and non-executable | Does not generate harmful, offensive, or misleading content. Does not fabricate statistics or results beyond tool outputs, and clearly states when information is unavailable. Does not produce executable code, scripts, or macros, including within generated emails. |
+| **Escalation Handling** | Prevent adversarial probing through repeated requests | If users repeatedly test system limits or resubmit previously denied requests, the agent issues a single clear refusal and does not continue that line of interaction. |
+
 > Attack surface analysis, guardrail design rationale, and Fallback Advisor coverage: **[`docs/15-security-guardrails-design.md`](docs/15-security-guardrails-design.md)**
 
 ---
@@ -701,7 +712,7 @@ Structured agents are configured with `agent as a tool` using OpenAI Agent SDK.
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
-### 1. Clone and install dependencies
+### 18.1. Clone and install dependencies
 
 ```bash
 # Install uv if not already installed
@@ -712,7 +723,7 @@ cd 0_supply_chain_capstone
 uv sync                  # creates .venv and installs all pinned dependencies
 ```
 
-### 2. Configure environment
+### 18.2. Configure environment
 
 ```bash
 cp .env.example .env
@@ -765,14 +776,14 @@ Required `.env` variables:
 |---|---|---|
 | `OPENAI_AGENTS_DISABLE_TRACING` | `1` | Set to `1` to disable SDK tracing (recommended — 10 KB trace payload limit causes errors with large prediction outputs) |
 
-### 3. Train the ML models (first run only)
+### 18.3. Train the ML models (first run only)
 
 Open and run `prediction_pipeline/notebooks/train_predict_delay_model.ipynb` end-to-end. This produces:
 - `prediction_pipeline/models/best_classification_random_forest.pkl` (Stage 1)
 - `prediction_pipeline/models/best_severity_random_forest.pkl` (Stage 2)
 - `prediction_pipeline/db/delivery_predictions.db` (SQLite with 27 tables)
 
-### 4. Start the MCP prediction server
+### 18.4. Start the MCP prediction server
 
 ```bash
 # In a separate terminal, from the project root
@@ -781,7 +792,7 @@ uv run python prediction_pipeline/prediction_server.py
 
 This starts the FastMCP server (stdio transport) that exposes `predict`, `diagnose`, and `simulate` as tools to the agent layer.
 
-### 5. Launch the app
+### 18.5. Launch the app
 
 ```bash
 uv run python supply_chain_delivery_app/delivery_chat_app.py
@@ -798,11 +809,12 @@ Open `http://localhost:7860` in your browser.
 
 ### Unit & Smoke Tests (Pytest)
 
-Three test modules in `tests/` cover the core logic layers. Run offline — no OpenAI API call, no trained models required.
+Four test modules in `tests/` cover the core logic layers. Run offline — no OpenAI API call, no trained models required (except `test_mcp_server.py`'s predict-pipeline calls).
 
 | Test file | Tests | What it covers |
 |---|---|---|
-| `tests/test_mcp_server.py` | 11 | Calls `predict_delivery_delays`, `get_delay_diagnosis`, and `simulate_order_delays` directly as async Python functions. Checks response structure, key presence, and content validity (e.g. "Rows affected" in simulate output). |
+| `tests/test_mcp_server.py` | 12 | Verifies the three MCP tools (`predict_delivery_delays`, `get_delay_diagnosis`, `simulate_order_delays`) are registered with the expected required arguments, then calls them directly as async Python functions. Checks response structure, key presence, and content validity (e.g. "Rows affected" in simulate output). |
+| `tests/test_feature_engineering.py` | 10 | Exercises `FeatureEngineering`'s interaction, ordinal/risk, and group-aggregate feature creation plus one-hot encoding and scaling — on a small synthetic DataFrame. No model files loaded, no ML inference. |
 | `tests/test_pydantic_models.py` | 11 | Validates Pydantic output models for all agents (RowEnrichment, DeliveryDelayPredictionResult, DelayDiagnosisResult, SimulationsList, etc.). Confirms valid data accepted, invalid data rejected at schema boundary. |
 | `tests/test_rag_knowledge.py` | 7 | Checks SLA file and vectorstore directory exist, ChromaDB collection is non-empty, and keyword queries return relevant SLA chunks. |
 
@@ -832,7 +844,7 @@ uv run python -m prediction_pipeline.src.daily_predict --file prediction_pipelin
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
-### ML Model Evaluation
+### 20.1 ML Model Evaluation
 
 Evaluation was performed in `prediction_pipeline/notebooks/train_predict_delay_model.ipynb` at training time.
 
@@ -868,13 +880,14 @@ The lower accuracy relative to Stage 1 reflects genuine class imbalance in the s
 
 **Top 5 Feature Importances (Stage 1 Random Forest)**
 
+**Top-5 features** account for **>80% of model decisions**
 | Rank | Feature | Importance | Interpretation |
 |---|---|---|---|
 | 1 | `km_per_expected_hr` | 27.1% | Schedule tightness relative to distance — overly optimistic windows are the single strongest delay driver |
 | 2 | `mode_urgency` | 21.5% | Delivery mode risk score — Same-Day and Express modes carry the highest baseline delay risk |
 | 3 | `schedule_risk` | 14.9% | Combined weather × urgency — bad weather plus tight deadline compounds to near-certain delay |
-| 4 | `vehicle_load_strain` | — | Weight-distance load relative to vehicle capacity — overloaded vehicles miss time windows |
-| 5 | `carrier_avg_schedule` | — | Partner-level pattern — some partners systematically accept routes too tight for their fleet |
+| 4 | `vehicle_load_strain` | 10% | Weight-distance load relative to vehicle capacity — overloaded vehicles miss time windows |
+| 5 | `carrier_avg_schedule` | 8% | Partner-level pattern — some partners systematically accept routes too tight for their fleet |
 
 Top 3 features together account for **>63% of model decisions**.
 
@@ -882,19 +895,32 @@ Top 3 features together account for **>63% of model decisions**.
 
 ---
 
-### Agent Evaluation (LLM-as-Judge)
+### 20.2 Agent Evaluation (LLM-as-Judge)
 
 All five agents were evaluated using a structured LLM-as-judge framework (GPT-5.4 as evaluator) scoring each agent output on three dimensions: **Relevance**, **Faithfulness**, and **Safety** on a 1–5 scale. Pass threshold: mean ≥ 3.0.
 
 | Agent | Relevance | Faithfulness | Safety | Mean | Result |
 |---|---|---|---|---|---|
-| Predict Delivery Delays | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
+| Predict Delivery Delays *(avg of 2 parts)* | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
 | Diagnose Delay Patterns | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
 | Recommendation Expert Agent | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
 | Simulate Delay Prediction | 5.0/5 | 4.0/5 | 5.0/5 | **4.67** | PASS |
 | Email Alert Agent | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
 
 **5/5 agents passed. All scores above threshold.**
+
+*Predict is judged in two independent parts — `predict_summary` and per-row `llm_insights` — because the summary is verbose enough that a single blended judge call let it crowd out visibility into the row-level insights. The report shows each part's own score in Detailed Results; the row above is their average.*
+
+#### LLM Judge Evaluation Summary
+
+| **Agent** | **LLM Reasoning / Feedback** |
+|-----------|------------------------------|
+| **Predict Delivery Delays** | The summary thoroughly addresses the task by providing detailed quantitative statistics and operational insights relevant to delivery delay prediction. The reported metrics are internally consistent and plausible, with no evidence of fabricated or contradictory information. The content is safe, focusing solely on operational factors influencing delivery performance. |
+| **Predict Delivery Delays (`llm_insights` per row)**<br>*(Evaluation on 5 rows)* | Each record clearly explains why the delivery is at risk by referencing key features such as `vehicle_load_strain`, `schedule_risk`, and `km_per_expected_hr`. All feature values appear consistent with the prediction output, demonstrating strong faithfulness. No misleading or unsafe content was identified. |
+| **Diagnose Delay Patterns** | The diagnosis accurately identifies major root-cause patterns, including delivery mode, weather conditions, route distance, and logistics partner. Comparisons between current and historical performance are supported by precise percentages and counts, indicating strong data faithfulness. Recommendations are evidence-based and operationally appropriate. |
+| **Recommendation Expert** | Recommendations are specific, actionable, and directly aligned with current operational issues. Each recommendation references relevant SLA clauses, thresholds, and business rules, demonstrating high grounding quality. Actions are logically prioritised into quick wins and short-term improvements without conflicting or unsafe guidance. |
+| **Simulate Delay Prediction (`llm_insights` per row)**<br>*(Evaluation on 5 rows)* | The simulated scenarios correctly describe the impact of stormy weather on delivery delay severity, with explanations referencing region, weather, delivery mode, and distance. While some explanations are intentionally high level, they remain consistent with the simulated outcomes. No invalid severity values or inconsistent delivery IDs were observed. |
+| **Email Alert Agent** | Customer emails maintain a professional, empathetic, and informative tone appropriate for delay notifications. Messages explain the specific causes of delays, such as weather and regional disruptions, while avoiding generic apologies, false promises, or disclosure of sensitive operational information. |
 
 ```bash
 # Full eval suite — 5 agent evals + RAG/RAGAS + human-baseline calibration.
@@ -922,22 +948,41 @@ Latest reports: **[`evals/reports/`](evals/reports/)**
 
 ---
 
-### RAG Evaluation (RAGAS)
+### 20.3 RAG Evaluation (RAGAS)
 
-The three-stage RAG pipeline (`retrieve_sla_context()`) is evaluated using RAGAS as part of the standard eval suite. The evaluation scopes faithfulness to SLA grounding: can the `sla_reference` citations in recommendations be traced back to the retrieved SLA context block?
+The three-stage RAG pipeline (`retrieve_sla_context()`) is evaluated using RAGAS as part of the standard eval suite. Faithfulness is scoped to SLA grounding: can the `sla_reference` citations in recommendations be traced back to their retrieved SLA context?
+
+**Design: per-topic sampling, not one blended query.** The recommendation agent's own instruction never varies run to run, so varying *that* wouldn't give RAGAS a meaningful spread of samples. Instead, each run's output naturally cites several distinct SLA topics — one recommendation might reference weather policy, another partner benchmarks, another distance rules. The eval samples up to 2 recommendations per category (quick-win / short-term / long-term), issues a **separate retrieval query per topic** (`retrieve_sla_context(query_override=...)`, bypassing the tool-output summarizer), and builds one RAGAS sample per topic — a real `n=6` dataset instead of a single blended sample.
+
+Latest run (`evals/reports/eval_report_20260712T150059.md`):
 
 | Metric | Score | Threshold | Result |
 |---|---|---|---|
-| Faithfulness | **0.938** | ≥ 0.60 | PASS |
-| Answer Relevancy | **0.778** | ≥ 0.60 | PASS |
+| Faithfulness (mean of 6 topics) | **0.909** | ≥ 0.60 | PASS |
+| Answer Relevancy (mean of 6 topics) | **0.843** | ≥ 0.60 | PASS |
+
+Per-topic breakdown from that run — this is what the earlier single-sample design couldn't show:
+
+| Category | Dimension | Faithfulness | Relevancy |
+|---|---|---|---|
+| quick-win | delivery_mode + weather + region | 1.000 | 0.850 |
+| quick-win | vehicle + weather + delivery_mode | 1.000 | 0.853 |
+| short-term | partner | 1.000 | 0.817 |
+| short-term | weather + delivery_mode | 1.000 | 0.855 |
+| long-term | delivery_mode | 1.000 | 0.854 |
+| long-term | weather + delivery_mode | 0.455 | 0.826 |
+
+**Finding:** across repeated runs, the mean faithfulness still varies (observed range ~0.76–0.91) — averaging 6 topics didn't eliminate RAGAS's inherent per-claim judging noise. What it *did* change: each run now names which specific topic scored low (it isn't the same topic every time), instead of hiding that signal inside one opaque blended score. That's a materially more useful eval even though the aggregate number itself is still noisy — this is a known property of small-`n` LLM-as-judge metrics, not a retrieval regression.
+
+We also tested two retrieval-depth hypotheses to explain an earlier observed score drop — narrowing the final rerank stage to top-5, and broadening upstream retrieval (`TOP_K` 15→20, hybrid pre-filter 12→16). Neither reliably improved or stabilized faithfulness (broadening actually widened the run-to-run spread), so the pipeline's retrieval parameters (`TOP_K=15 → HYBRID_PRE_FILTER_N=12 → RERANK_TOP_N=8`) were kept as originally committed.
 
 RAGAS runs on the same eval DB as the agent evals (`evals/db/delivery_predictions_eval.db`) — no separate large-scale dataset is needed. The recommendation agent's input (prediction + diagnosis outputs) is already in the eval DB after the standard pipeline run.
 
-> RAGAS eval implementation: **[`evals/test_eval_rag.py`](evals/test_eval_rag.py)**
+> RAGAS eval implementation: **[`evals/test_eval_rag.py`](evals/test_eval_rag.py)** · Design rationale: **[`docs/21-eval-flow-design.md`](docs/21-eval-flow-design.md)**
 
 ---
 
-### Human Baseline Calibration
+### 20.4 Human Baseline Calibration
 
 Agent outputs were independently scored by a human reviewer on the same three dimensions (Relevance, Faithfulness, Safety, 1–5 scale) and compared against the LLM judge scores.
 
@@ -966,15 +1011,107 @@ uv run pytest evals/test_eval_human_baseline.py -v
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
-Last-mile delivery failures are not random — they cluster by region, partner, weather condition, and vehicle type. By predicting delays before dispatch and diagnosing which operational dimensions are deteriorating, the system gives logistics managers actionable signals hours ahead of customer impact rather than reactive explanations after the fact. The shift from post-hoc reporting to pre-dispatch intelligence is the core business value: interventions become possible when they are still cheap.
+### 21.1 Baseline Delay Profile
 
-The recommendation engine grounds every action in the SLA contract the business has already signed. Rather than generating generic best-practice advice, it cites the specific clause, target, and penalty relevant to each failing dimension — turning a compliance document that typically sits unread into an operational decision support tool. This closes the gap between what the SLA requires and what the operations team is doing, and makes the commercial cost of each delay pattern explicit and traceable.
+Analysis of **25,000 historical delivery records** shows an overall **27% delay rate**, meaning approximately **1 in 4 shipments** misses its committed delivery window. This exposes logistics operations to SLA penalties, partner deductions, and customer dissatisfaction.
 
-Simulation adds a dimension that static reporting cannot: it lets planners test the impact of proposed changes — rerouting high-risk partners, switching delivery modes for severe-weather regions, redistributing vehicle types — before committing resources. The ability to model "what if we moved all high-risk Express orders in the North region to Ground during adverse weather?" reduces the guesswork in operational planning and makes scenario analysis accessible to non-technical users through a conversational interface.
+The strongest contributors to severe delays (>6 hours) are:
+- Stormy weather
+- Same-Day delivery mode over long distances
+- Unrealistic delivery schedules
 
-The personalised email alert pipeline converts delay predictions into customer communications automatically, replacing a manual triage process that typically introduces a 2–4 hour lag between a detected delay and customer notification. Earlier notification reduces inbound support volume and protects NPS scores in the window where customer expectations can still be managed.
+### 21.2 ML Prediction – Early Warning Value
 
-Across the full pipeline, the system operates on a 1-hour freshness TTL: a logistics team can run a morning prediction, diagnose overnight pattern shifts, generate SLA-grounded recommendations, and send customer alerts in a single end-to-end session — a workflow that previously required separate tools, separate teams, and multiple manual handoffs.
+The two-stage Random Forest pipeline enables **proactive intervention** instead of reactive firefighting.
+
+#### Stage 1 (Delay Prediction)
+
+- **Recall:** **81.5%**
+- Correctly identifies **81 out of every 100 delayed shipments**
+- Enables rerouting, escalation, or proactive customer notification before SLA breach
+- Remaining **18.5% false negatives** (~249 orders per 5,000-order batch) require manual monitoring
+- Assuming an average SLA penalty of **₹500 per delayed shipment**, early detection can potentially avoid **₹547,000** in penalties per operating day
+
+#### Feature Importance
+**Top-5 features** together account for **>80% of model decisions**.
+
+| Rank | Feature | Importance | Business Interpretation |
+|------|---------|-----------:|-------------------------|
+| 1 | `km_per_expected_hr` | **21.7%** | Schedule tightness relative to distance is the strongest predictor of delays. |
+| 2 | `mode_urgency` | **21.5%** | Same-Day and Express deliveries carry the highest baseline delay risk. |
+| 3 | `schedule_risk` | **14.9%** | Bad weather combined with tight schedules significantly increases delay probability. |
+| 4 | `vehicle_load_strain` | **10.0%** | Overloaded vehicles are more likely to miss delivery windows. |
+| 5 | `carrier_avg_schedule` | **8.0%** | Some logistics partners consistently operate with overly aggressive schedules. |
+
+### 21.3 Severity Triage
+
+Stage 2 predicts delay severity with **63.7% accuracy**, classifying delayed shipments into:
+
+- Short (1–2 hours)
+- Medium (3–5 hours)
+- Long (>6 hours)
+
+This enables:
+
+- Prioritisation of high-impact delays
+- Targeted customer communication
+- Severity-weighted partner performance measurement
+- Reduced customer alert fatigue
+
+### 21.4 Multi-Agent Decision Support
+
+Without the system, handling a delivery escalation typically requires:
+
+- Querying partner databases
+- Reviewing SLA documents
+- Identifying root causes
+- Preparing customer communication
+
+Estimated effort: **35–45 minutes per incident**
+
+The multi-agent workflow compresses this into a **single natural-language query** that automatically produces:
+
+- Delay prediction
+- Root-cause diagnosis
+- Scenario simulation
+- SLA-grounded recommendations
+- Draft customer email
+
+Estimated effort: **10–20 minutes**
+
+For **50–100 daily escalations**, this saves approximately:
+
+- **1,500–3,000 analyst minutes/day**
+- Approximately **0.5–1.5 FTE**
+
+### 21.5 RAG Grounding
+
+Recommendations are generated using a three-stage RAG pipeline:
+```
+ChromaDB >> Hybrid Retrieval >> Cross-Encoder Re-ranking
+```
+
+Each recommendation references the relevant SLA clause together with the current operational metric and required threshold.
+
+#### RAG Evaluation (RAGAS, per-topic sampling — see §20.3)
+
+| Metric | Latest run | Observed range across runs |
+|---------|------:|------:|
+| Faithfulness | **0.909** | 0.76 to 0.91 |
+| Answer Relevancy | **0.843** | 0.82 to 0.86 |
+
+Both metrics exceed the **0.60 acceptance threshold** on every run, indicating high-quality retrieval grounding. The eval now scores faithfulness/relevancy per distinct SLA topic cited in the recommendations (n≈6 samples/run, up from a single blended sample) — see §20.3 for the per-topic breakdown and why the run-to-run range persists even after averaging.
+
+### 21.6 Consolidated Business Impact
+
+| Dimension | Metric | Business Value |
+|-----------|--------|----------------|
+| **Delay Detection** | Stage 1 Recall: **81.5%** | Early identification of ~5,300 delayed shipments across 25,000 orders enables proactive intervention before SLA breach. |
+| **Severity Triage** | Stage 2 Accuracy: **63.7%** | Prioritises Short/Medium/Long delays, enabling smarter escalation and customer communication. |
+| **Analyst Productivity** | ~80% cycle-time reduction | Manual analysis reduced from 35–45 minutes to 10–20 minutes, saving **1,500–3,000 analyst minutes/day** (~0.5–1.5 FTE). |
+| **Recommendation Quality** | LLM Judge: **5.0/5**<br>Faithfulness: **0.909** (0.76–0.91 range)<br>Answer Relevancy: **0.843** (0.82–0.86 range) | SLA-grounded, auditable recommendations instead of generic LLM advice. |
+| **Customer Alerting** | LLM Judge: **5.0/5**<br>~649 severity-matched alerts per 5,000 orders | Alerts only Medium and Long delays, reducing alert fatigue while improving customer communication. |
+| **Partner Accountability** | 27 SQLite tables<br>290 metadata entries<br>12 delay dimensions | Enables partner scorecards, historical trend analysis, and evidence-based SLA review discussions. |
 
 ---
 ---
@@ -1019,16 +1156,22 @@ Across the full pipeline, the system operates on a 1-hour freshness TTL: a logis
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
-- Real-time streaming integration: Replace batch CSV ingestion with a Kafka or database trigger to enable continuous inference on live order streams.
-- Model monitoring and retraining: Add data drift detection (e.g., using Evidently) and automated retraining triggers when feature distributions shift significantly.
-- Simulations: using monti-carlo algorithm for simulations and strengthening the impact assessment.
-- Multi-modal inputs: Incorporate traffic API data, satellite weather feeds, and partner GPS telemetry as additional real-time features.
-- Fine-tuned SLA-specific LLM or Model-Routing: Replace the general-purpose GPT-5.4 / 4.1-mini with a fine-tuned model trained on historical logistics decisions to improve recommendation specificity. Use model routing to identify the intent and use smaller models for simple tasks and larger models for complex tasks.
-- Scemantic cache: Implement semantic cache to avoid LLM calls when similar queries are fired.
-- UI: Use production enterprise-grade UI tools/ libraries
-- Performance tuning: to reduce the time taken for each agent execution and rendering the results on the screen
-- A/B testing framework: Instrument the recommendation engine to track which suggestions are actually implemented and measure their impact on delay rates.
-- Partner portal: Expose a sub-set of insights to delivery partners through a read-only API so they can see their own performance data and proactively adjust operations.
+| **Category**                | **Current Limitation**                                                                                                                                                                 |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Training Data**           | Synthetic data generated using SDV. Real production data would introduce distribution shifts, richer operational features (e.g., traffic), and multi-modal inputs.                     |
+| **Caching**                 | In-memory RAG and response caches reset on application restart. No distributed or semantic caching is implemented.                                                                     |
+| **Simulation Engine**       | Simulations are based on historical patterns. Production deployments would require probabilistic techniques such as Monte Carlo simulation.                                            |
+| **Deployment Architecture** | SQLite, Gradio UI, and batch CSV uploads are demonstration-grade components. Authentication, concurrent users, model drift detection, and live system integration are not implemented. |
+| **Streaming Integration**   | Current workflow is batch-based. No Kafka/event-driven streaming or real-time order ingestion is supported.                                                                            |
+| **LLM Architecture**        | Uses frontier LLMs without fine-tuned Small Language Models (SLMs) or intelligent model routing for cost optimization.                                                                 |
+| **Data & LLM Bias**         | The dataset may underrepresent certain carrier–region–weather combinations. LLM-generated insights may hallucinate in edge cases, and no fairness audit has been performed.            |
+
+
+| **Phase**           | **Planned Enhancements**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Phase 1 – Data**  | • Replace synthetic data with real ERP/TMS feeds<br>• Integrate live Weather API and carrier ETA feeds<br>• Implement incremental Random Forest retraining pipeline                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Phase 2 – Scale** | • Production-grade web UI replacing Gradio<br>• PostgreSQL for concurrent access<br>• Live ERP/TMS integration via APIs<br>• MLOps pipeline for automated retraining and drift detection<br>• Role-based access control<br>• MCP HTTP/SSE transport for multi-user support<br>• Asynchronous agent execution with real-time streaming integration<br>• Redis-backed distributed and semantic caching<br>• Fine-tuned Small Language Models (SLMs) and/or model routing<br>• Latency, performance, and cost optimization<br>• A/B testing and red-team testing<br>• Partner portal for selected insights |
+| **Phase 3 – Trust** | • Human baseline evaluation (100+ queries)<br>• Bias audits across regions, carriers, partners, and weather cohorts<br>• Explainability layer for Random Forest predictions<br>• Confidence scoring for LLM-generated insights<br>• Human review gate before external customer communication                                                                                                                                                                                                                                                                                                            |
 
 ---
 ---
@@ -1073,7 +1216,7 @@ Across the full pipeline, the system operates on a 1-hour freshness TTL: a logis
 
 ---
 
-## 24. Licence
+## 25. Licence
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 

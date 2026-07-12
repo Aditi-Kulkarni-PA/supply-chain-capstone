@@ -50,9 +50,11 @@ def _latest_llm_scores() -> tuple[dict, str]:
     session_scores: dict = {}
     try:
         import judge  # evals dir is on sys.path via conftest
-        for r in getattr(judge, "_records", []):
-            if all(d in r for d in DIMENSIONS):
-                session_scores[r["agent"]] = {d: float(r[d]) for d in DIMENSIONS}
+        # grouped_scores collapses per-part records (e.g. predict's Summary /
+        # LLM Insights sub-scores) into one averaged score per base agent name,
+        # matching what conftest's report writer and judge_scores_latest.json use.
+        for agent, scores in judge.grouped_scores().items():
+            session_scores[agent] = {d: float(scores[d]) for d in DIMENSIONS}
     except Exception:
         pass
 

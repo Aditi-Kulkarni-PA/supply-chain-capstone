@@ -18,9 +18,35 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 PP = PROJECT_ROOT / "prediction_pipeline"
 sys.path.insert(0, str(PP))
 
-from prediction_server import predict_delivery_delays, get_delay_diagnosis, simulate_order_delays
+from prediction_server import predict_delivery_delays, get_delay_diagnosis, simulate_order_delays, mcp
 
 INPUT_CSV = str(PROJECT_ROOT / "supply_chain_delivery_app" / "input" / "daily_delivery_logistics_1.csv")
+
+
+# ---------------------------------------------------------------------------
+# MCP tool registration — no invocation, no model loading
+# ---------------------------------------------------------------------------
+
+@pytest_asyncio.fixture(scope="session")
+async def mcp_tools():
+    return await mcp.list_tools()
+
+
+@pytest.mark.asyncio
+async def test_mcp_tools_registered_with_expected_args(mcp_tools):
+    by_name = {t.name: t for t in mcp_tools}
+    expected = {
+        "predict_delivery_delays": {"file_path"},
+        "get_delay_diagnosis": set(),
+        "simulate_order_delays": {"scenario", "filters", "changes"},
+    }
+    for tool_name, required_args in expected.items():
+        assert tool_name in by_name, f"MCP tool not registered: {tool_name}"
+        schema_required = set(by_name[tool_name].inputSchema.get("required") or [])
+        assert required_args <= schema_required, (
+            f"{tool_name} missing expected required args: "
+            f"{required_args - schema_required}"
+        )
 
 
 # ---------------------------------------------------------------------------

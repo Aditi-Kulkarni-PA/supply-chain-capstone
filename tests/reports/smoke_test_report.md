@@ -1,11 +1,22 @@
 # Smoke Test Report
 
-**Date**: 2026-07-05 14:21:57  
+**Date**: 2026-07-12 15:25:33  
 **Overall**: PASSED  
-**Total**: 29 | **Passed**: 29 | **Failed**: 0 | **Errors**: 0 | **Skipped**: 0
+**Total**: 40 | **Passed**: 40 | **Failed**: 0 | **Errors**: 0 | **Skipped**: 0
 
 ## Passed
 
+- `[PASS]` tests/test_feature_engineering.py::test_delay_hours_created_and_follows_slack_time_rule
+- `[PASS]` tests/test_feature_engineering.py::test_encode_delayed_column_to_binary
+- `[PASS]` tests/test_feature_engineering.py::test_interaction_features_exist
+- `[PASS]` tests/test_feature_engineering.py::test_weight_x_distance_formula
+- `[PASS]` tests/test_feature_engineering.py::test_ordinal_features_exist
+- `[PASS]` tests/test_feature_engineering.py::test_schedule_risk_equals_weather_times_mode
+- `[PASS]` tests/test_feature_engineering.py::test_group_aggregate_features_exist
+- `[PASS]` tests/test_feature_engineering.py::test_pre_split_pipeline_creates_full_feature_set
+- `[PASS]` tests/test_feature_engineering.py::test_one_hot_encode_removes_categoricals
+- `[PASS]` tests/test_feature_engineering.py::test_scale_features_returns_fitted_scaler
+- `[PASS]` tests/test_mcp_server.py::test_mcp_tools_registered_with_expected_args
 - `[PASS]` tests/test_mcp_server.py::test_predict_summary_fields
 - `[PASS]` tests/test_mcp_server.py::test_predict_total_orders_positive
 - `[PASS]` tests/test_mcp_server.py::test_predict_has_delayed_orders

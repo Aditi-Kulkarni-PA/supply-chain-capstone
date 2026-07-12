@@ -184,7 +184,7 @@ def full_input_file_path() -> Path:
 
 def pytest_sessionfinish(session, exitstatus):
     """Write a human-readable markdown eval report after the session completes."""
-    from judge import _records, mean_score
+    from judge import _records, mean_score, grouped_scores
     if not _records:
         return
 
@@ -195,7 +195,18 @@ def pytest_sessionfinish(session, exitstatus):
     rec_rec = next((r for r in _records if r["agent"] == "Recommendation Expert Agent"), None)
     if rag_rec and rec_rec and rag_rec.get("ragas_scores") and not rec_rec.get("ragas_scores"):
         rec_rec["ragas_scores"] = rag_rec["ragas_scores"]
+        # Preserve RAG's per-topic breakdown table — otherwise it's silently dropped.
+        rec_rec["output"] = (
+            rec_rec["output"] + "\n\n---\n\n**RAG Per-Topic Breakdown**\n\n" + rag_rec["output"]
+        )
         _records.remove(rag_rec)
+
+    # Some agents (e.g. predict) judge multiple parts of their output separately —
+    # "Predict Delivery Delays — Summary" / "Predict Delivery Delays — LLM Insights".
+    # The base agent name (before " — ") is what pipeline order, grouping, and the
+    # top-level Summary table key off; each part still gets its own Detailed Results section.
+    def _base_agent(name: str) -> str:
+        return name.split(" — ")[0]
 
     # Sort records into pipeline order: predict → diagnose → recommend → simulate → email
     _REPORT_ORDER = [
@@ -205,15 +216,25 @@ def pytest_sessionfinish(session, exitstatus):
         "Simulate Delay Prediction",
         "Email Alert Agent",
     ]
-    _records.sort(key=lambda r: _REPORT_ORDER.index(r["agent"]) if r["agent"] in _REPORT_ORDER else len(_REPORT_ORDER))
+    _records.sort(key=lambda r: (
+        _REPORT_ORDER.index(_base_agent(r["agent"])) if _base_agent(r["agent"]) in _REPORT_ORDER else len(_REPORT_ORDER),
+        r["agent"],
+    ))
+
+    # Group by base agent name and average relevance/faithfulness/safety/mean across
+    # its parts — this is what the top-level Summary table and pass/fail count use.
+    summary_rows = [
+        {"agent": base, **scores}
+        for base, scores in grouped_scores(_records).items()
+    ]
 
     from datetime import datetime
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%dT%H%M%S")
     report_path = REPORTS_DIR / f"eval_report_{timestamp}.md"
 
-    passed = sum(1 for r in _records if r["mean"] >= 3.0)
-    failed = len(_records) - passed
+    passed = sum(1 for g in summary_rows if g["mean"] >= 3.0)
+    failed = len(summary_rows) - passed
 
     lines = [
         "# Supply Chain Delivery Agent — Eval Report",
@@ -227,19 +248,20 @@ def pytest_sessionfinish(session, exitstatus):
         "|-------|-----------|--------------|--------|------|--------|",
     ]
 
-    for r in _records:
-        status = "PASS" if r["mean"] >= 3.0 else "FAIL"
+    for g in summary_rows:
+        status = "PASS" if g["mean"] >= 3.0 else "FAIL"
+        agent_label = g["agent"] if g["parts"] == 1 else f"{g['agent']} (avg of {g['parts']} parts)"
         lines.append(
-            f"| {r['agent']} "
-            f"| {r['relevance']:.1f}/5 "
-            f"| {r['faithfulness']:.1f}/5 "
-            f"| {r['safety']:.1f}/5 "
-            f"| **{r['mean']:.2f}** "
+            f"| {agent_label} "
+            f"| {g['relevance']:.1f}/5 "
+            f"| {g['faithfulness']:.1f}/5 "
+            f"| {g['safety']:.1f}/5 "
+            f"| **{g['mean']:.2f}** "
             f"| {status} |"
         )
 
     lines += [
-        f"\n**Total:** {len(_records)}  **Passed:** {passed}  **Failed:** {failed}\n",
+        f"\n**Total:** {len(summary_rows)}  **Passed:** {passed}  **Failed:** {failed}\n",
         "---\n",
         "## Detailed Results\n",
     ]
@@ -269,9 +291,9 @@ def pytest_sessionfinish(session, exitstatus):
             r["input"] if r["input"] else "(not provided)",
             "```",
             "",
-            "**Output** *(truncated to 3000 chars)*",
+            "**Output** *(truncated to 5500 chars)*",
             "```",
-            r["output"][:3000],
+            r["output"][:5500],
             "```",
             "",
             "**LLM Judge Scores** *(1 – 5 scale, pass threshold ≥ 3.0)*",
@@ -301,13 +323,13 @@ def pytest_sessionfinish(session, exitstatus):
     scores_payload = {
         "generated": datetime.now().isoformat(timespec="seconds"),
         "scores": {
-            r["agent"]: {
-                "relevance":    r["relevance"],
-                "faithfulness": r["faithfulness"],
-                "safety":       r["safety"],
-                "mean":         r["mean"],
+            g["agent"]: {
+                "relevance":    g["relevance"],
+                "faithfulness": g["faithfulness"],
+                "safety":       g["safety"],
+                "mean":         g["mean"],
             }
-            for r in _records
+            for g in summary_rows
         },
     }
     (REPORTS_DIR / f"judge_scores_{timestamp}.json").write_text(

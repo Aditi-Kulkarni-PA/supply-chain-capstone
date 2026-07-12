@@ -940,7 +940,7 @@ custom_css = """
 with gr.Blocks(theme=gr.themes.Default(primary_hue="purple"), css=custom_css) as ui:
     ui.queue(default_concurrency_limit=5)
     gr.Markdown(
-        "# Supply Chain Last-Mile Delivery Digital Twin - Monitoring & Optimization",
+        "# Supply Chain Last-Mile Delivery - AI Control Plane",
         elem_classes=["page-title"],
     )
 

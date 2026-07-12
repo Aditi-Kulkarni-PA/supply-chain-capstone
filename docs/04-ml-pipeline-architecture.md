@@ -150,6 +150,8 @@
 | 10. Database Operations | `database_operations_10.py` | Write 27 SQLite tables: predictions + 12 daily + 12 historical summaries |
 | 11. Test Data Generation | `generate_daily_test_data_11.py` | Synthetic daily batches (3 × 5,000 rows) |
 
+Daily inference input is synthetic (stratified sampling from the training distribution with controlled delay-rate injection) rather than a live order feed — production live-order integration requires real-time infrastructure outside the scope of this demonstration, while synthetic data preserves realistic statistical properties and enables reproducible evaluation.
+
 ---
 
 ## Two-Stage Prediction Design
@@ -248,6 +250,8 @@ The Random Forest provides Gini-impurity-based feature importances after trainin
 | 5 | `carrier_avg_schedule` | ~8% | Group aggregate | Partner-level pattern — some partners systematically accept routes too tight for their fleet |
 
 **Top 3 features together account for >63% of all model decisions.** All three are engineered features, not raw inputs — confirming that feature engineering was the most analytically significant step in the pipeline. None of the raw categorical columns (`delivery_partner`, `vehicle_type`, `region`) appear in the top 5.
+
+**Key finding — feature engineering ROI vs. model selection ROI:** swapping between Random Forest, XGBoost, and LightGBM moved recall by only 2–3 percentage points. Engineering `km_per_expected_hr` and `schedule_risk` alone moved recall by ~15 points. In structured tabular ML problems like this one, domain-informed feature design has significantly higher ROI than model selection or hyperparameter tuning.
 
 ### Stage 2 — Severity Classification
 

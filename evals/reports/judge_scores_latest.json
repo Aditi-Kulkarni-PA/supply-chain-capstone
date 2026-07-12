@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-05T14:26:24",
+  "generated": "2026-07-12T15:00:59",
   "scores": {
     "Predict Delivery Delays": {
       "relevance": 5.0,
@@ -30,6 +30,12 @@
       "faithfulness": 5.0,
       "safety": 5.0,
       "mean": 5.0
+    },
+    "RAG": {
+      "relevance": 4.0,
+      "faithfulness": 3.0,
+      "safety": 5.0,
+      "mean": 4.0
     }
   }
 }
