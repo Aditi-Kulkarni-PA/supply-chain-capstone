@@ -201,6 +201,11 @@ def pytest_sessionfinish(session, exitstatus):
         )
         _records.remove(rag_rec)
 
+    def _ragas_ok(metric: str, val: float) -> bool:
+        """hallucination_rate is the one lower-is-better RAGAS metric (bar: <=0.40);
+        the rest are higher-is-better (bar: >=0.60)."""
+        return val <= 0.40 if metric == "hallucination_rate" else val >= 0.60
+
     # Some agents (e.g. predict) judge multiple parts of their output separately —
     # "Predict Delivery Delays — Summary" / "Predict Delivery Delays — LLM Insights".
     # The base agent name (before " — ") is what pipeline order, grouping, and the
@@ -244,6 +249,7 @@ def pytest_sessionfinish(session, exitstatus):
         f"**Pass threshold:** mean score ≥ 3.0\n",
         "---\n",
         "## Summary\n",
+        "### Agent LLM-as-a-Judge Evaluation\n",
         "| Agent | Relevance | Faithfulness | Safety | Mean | Result |",
         "|-------|-----------|--------------|--------|------|--------|",
     ]
@@ -261,7 +267,28 @@ def pytest_sessionfinish(session, exitstatus):
         )
 
     lines += [
-        f"\n**Total:** {len(summary_rows)}  **Passed:** {passed}  **Failed:** {failed}\n",
+        f"\n**Total:** {len(summary_rows)} | **Passed:** {passed} | **Failed:** {failed}\n",
+    ]
+
+    # RAG evaluation summary — pulled up to the top-level Summary section (not just
+    # buried in Detailed Results) since it's a distinct 4-metric eval, not a 5th
+    # agent. Only the Recommendation agent uses RAG, so there's at most one source.
+    ragas_source = next((r for r in _records if r.get("ragas_scores")), None)
+    if ragas_source:
+        lines += [
+            "### RAG Evaluation (RAGAS)\n",
+            f"*Scored on the {ragas_source['agent']} — the only RAG-grounded agent "
+            f"(Predict/Diagnose/Simulate/Email don't retrieve anything).*\n",
+            "| Metric | Score | Pass |",
+            "|--------|-------|------|",
+        ]
+        for metric, val in ragas_source["ragas_scores"].items():
+            label = metric.replace("_", " ").title()
+            ok = "Yes" if _ragas_ok(metric, val) else "No"
+            lines.append(f"| {label} | {val:.3f} | {ok} |")
+        lines.append("")
+
+    lines += [
         "---\n",
         "## Detailed Results\n",
     ]
@@ -271,17 +298,20 @@ def pytest_sessionfinish(session, exitstatus):
         ragas = r.get("ragas_scores")
         ragas_rows = []
         if ragas:
+            # Display-only check — real pass/fail is enforced by the test's own
+            # assertions against eval_config thresholds.
             ragas_rows = [
                 "",
-                "**RAGAS Scores** *(0.0 – 1.0 scale, pass threshold ≥ 0.60)*",
+                "**RAGAS Scores** *(0.0 – 1.0 scale)*",
                 "",
-                "| Metric | Score | Pass |",
-                "|--------|-------|------|",
+                "| Metric | Score | Direction | Pass |",
+                "|--------|-------|-----------|------|",
             ]
             for metric, val in ragas.items():
                 label = metric.replace("_", " ").title()
-                ok = "Yes" if val >= 0.60 else "No"
-                ragas_rows.append(f"| {label} | {val:.3f} | {ok} |")
+                direction = "lower is better (≤0.40)" if metric == "hallucination_rate" else "higher is better (≥0.60)"
+                ok = "Yes" if _ragas_ok(metric, val) else "No"
+                ragas_rows.append(f"| {label} | {val:.3f} | {direction} | {ok} |")
 
         lines += [
             f"### {r['agent']}  —  {status}",

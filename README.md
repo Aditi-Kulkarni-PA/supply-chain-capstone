@@ -3,6 +3,8 @@
 **IIIT Bangalore / upGrad — Post Graduate Diploma in ML & AI — Capstone Project**  
 **Author:** Aditi Kulkarni
 
+> **Submission: Version 1 (Baseline).** This is the end-to-end functional, modular, reproducible baseline described in No.23 [Current Implementation Status](#23-current-implementation-status). It is not the final submission — see No.24 [Known Limitations](#24-known-limitations) for what's out of scope at this stage, and No.25 [Potential Future Extensions](#25-potential-future-extensions) for the longer-term production roadmap.
+
 ---
 
 ## Table of Contents
@@ -29,9 +31,11 @@
 20. [Evaluation](#20-evaluation)
 21. [Strategic Deductions and Business Impact](#21-strategic-deductions-and-business-impact)
 22. [Key Learnings](#22-key-learnings)
-23. [Potential Future Extensions](#23-potential-future-extensions)
-24. [Gradio UI App Screenshots](#24-gradio-ui-app-screenshots)
-25. [Licence](#25-licence)
+23. [Current Implementation Status](#23-current-implementation-status)
+24. [Known Limitations](#24-known-limitations)
+25. [Potential Future Extensions](#25-potential-future-extensions)
+26. [Gradio UI App Screenshots](#26-gradio-ui-app-screenshots)
+27. [Licence](#27-licence)
 
 ---
 ---
@@ -65,7 +69,7 @@ This project deliberately combines classical ML with a multi-agent AI system, an
 
 1. **Task decomposition across specialist domains.** Prediction, diagnosis, simulation, recommendation, and alerting are five distinct capabilities with different tools, data sources, and output contracts. A single monolithic agent with all tools attached would receive conflicting instructions, mix output schemas, and be impossible to debug. Separate specialist agents — each with one tool, one Pydantic schema, one focused prompt — keep each capability independently testable and replaceable.
 
-2. **Enforced sequential dependency chains.** Diagnosis requires prediction data in SQLite; recommendations require diagnosis patterns to ground SLA citations. Multi-agent orchestration makes these data dependencies explicit and machine-enforceable through the Master Orchestrator's prerequisite logic and freshness sidecar gates — a single-agent or pipeline approach cannot enforce this at the tool-call level.
+2. **Enforced dependency chains.** Diagnosis requires prediction data in SQLite; recommendations require diagnosis patterns to ground SLA citations. Multi-agent orchestration makes these data dependencies explicit and machine-enforceable through the Master Orchestrator's prerequisite logic and freshness sidecar gates — a single-agent or pipeline approach cannot enforce this at the tool-call level.
 
 3. **Natural language as the user interface across a complex workflow.** Operations teams need to query predictions, run simulations, and request recommendations through a single conversational interface without knowing which tools to invoke or in what order. The Master Orchestrator interprets intent, builds and confirms an action plan, routes to the correct specialist agents in sequence, and assembles structured outputs — a workflow that is not achievable with deterministic heuristics or a single-step LLM call.
 
@@ -904,12 +908,12 @@ All five agents were evaluated using a structured LLM-as-judge framework (GPT-5.
 | Predict Delivery Delays *(avg of 2 parts)* | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
 | Diagnose Delay Patterns | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
 | Recommendation Expert Agent | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
-| Simulate Delay Prediction | 5.0/5 | 4.0/5 | 5.0/5 | **4.67** | PASS |
+| Simulate Delay Prediction | 4.0/5 | 3.0/5 | 5.0/5 | **4.00** | PASS |
 | Email Alert Agent | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
 
 **5/5 agents passed. All scores above threshold.**
 
-*Predict is judged in two independent parts — `predict_summary` and per-row `llm_insights` — because the summary is verbose enough that a single blended judge call let it crowd out visibility into the row-level insights. The report shows each part's own score in Detailed Results; the row above is their average.*
+*Predict is judged in two independent parts — `predict_summary` and per-row `llm_insights` — each scored separately in Detailed Results; the row above is their average.*
 
 #### LLM Judge Evaluation Summary
 
@@ -919,7 +923,7 @@ All five agents were evaluated using a structured LLM-as-judge framework (GPT-5.
 | **Predict Delivery Delays (`llm_insights` per row)**<br>*(Evaluation on 5 rows)* | Each record clearly explains why the delivery is at risk by referencing key features such as `vehicle_load_strain`, `schedule_risk`, and `km_per_expected_hr`. All feature values appear consistent with the prediction output, demonstrating strong faithfulness. No misleading or unsafe content was identified. |
 | **Diagnose Delay Patterns** | The diagnosis accurately identifies major root-cause patterns, including delivery mode, weather conditions, route distance, and logistics partner. Comparisons between current and historical performance are supported by precise percentages and counts, indicating strong data faithfulness. Recommendations are evidence-based and operationally appropriate. |
 | **Recommendation Expert** | Recommendations are specific, actionable, and directly aligned with current operational issues. Each recommendation references relevant SLA clauses, thresholds, and business rules, demonstrating high grounding quality. Actions are logically prioritised into quick wins and short-term improvements without conflicting or unsafe guidance. |
-| **Simulate Delay Prediction (`llm_insights` per row)**<br>*(Evaluation on 5 rows)* | The simulated scenarios correctly describe the impact of stormy weather on delivery delay severity, with explanations referencing region, weather, delivery mode, and distance. While some explanations are intentionally high level, they remain consistent with the simulated outcomes. No invalid severity values or inconsistent delivery IDs were observed. |
+| **Simulate Delay Prediction (`llm_insights` per row)**<br>*(Evaluation on 5 rows)* | The output consistently links delay changes to the queried weather condition and region, addressing the scenario well. Explanations are somewhat generic and don't always name specific features like `distance_km` explicitly per case, which is the main faithfulness gap. No impossible severity values or unknown delivery IDs were observed. |
 | **Email Alert Agent** | Customer emails maintain a professional, empathetic, and informative tone appropriate for delay notifications. Messages explain the specific causes of delays, such as weather and regional disruptions, while avoiding generic apologies, false promises, or disclosure of sensitive operational information. |
 
 ```bash
@@ -950,35 +954,33 @@ Latest reports: **[`evals/reports/`](evals/reports/)**
 
 ### 20.3 RAG Evaluation (RAGAS)
 
-The three-stage RAG pipeline (`retrieve_sla_context()`) is evaluated using RAGAS as part of the standard eval suite. Faithfulness is scoped to SLA grounding: can the `sla_reference` citations in recommendations be traced back to their retrieved SLA context?
+The three-stage RAG pipeline (`retrieve_sla_context()`) is evaluated using RAGAS as part of the standard eval suite, scoped to the **Recommendation agent** — the only agent that retrieves anything. Predict, Diagnose, Simulate, and Email read directly from MCP tools / SQLite / deterministic Python; their equivalent grounding check is the Faithfulness dimension already in each agent's LLM-as-judge criteria.
 
-**Design: per-topic sampling, not one blended query.** The recommendation agent's own instruction never varies run to run, so varying *that* wouldn't give RAGAS a meaningful spread of samples. Instead, each run's output naturally cites several distinct SLA topics — one recommendation might reference weather policy, another partner benchmarks, another distance rules. The eval samples up to 2 recommendations per category (quick-win / short-term / long-term), issues a **separate retrieval query per topic** (`retrieve_sla_context(query_override=...)`, bypassing the tool-output summarizer), and builds one RAGAS sample per topic — a real `n=6` dataset instead of a single blended sample.
+**Sampling design.** The recommendation agent's own instruction is fixed, so its output is what varies — each run naturally cites several distinct SLA topics (a quick-win about weather policy, a short-term about partner benchmarks, a long-term about distance rules). The eval samples up to 2 recommendations per category (quick-win / short-term / long-term), retrieves each topic's SLA context independently (`retrieve_sla_context(query_override=...)`), and scores each topic as its own RAGAS sample — `n≈6` per run, with a per-topic breakdown alongside the aggregate.
 
-Latest run (`evals/reports/eval_report_20260712T150059.md`):
+**Four metrics:**
 
-| Metric | Score | Threshold | Result |
-|---|---|---|---|
-| Faithfulness (mean of 6 topics) | **0.909** | ≥ 0.60 | PASS |
-| Answer Relevancy (mean of 6 topics) | **0.843** | ≥ 0.60 | PASS |
+| **Metric** | **Measures** | **Score** | **Threshold** | **Result** |
+|------------|--------------|----------:|:-------------:|:----------:|
+| **Faithfulness (Groundedness)** | Do `sla_reference` citations stay within their own topic's retrieved context? | **0.983** | ≥ 0.60 |  **PASS** |
+| **Answer Relevancy** | Does each citation directly answer its topic's question? | **0.863** | ≥ 0.60 |  **PASS** |
+| **Context Precision** | Were the retrieved SLA chunks relevant to the topic query? | **0.875** | ≥ 0.60 |  **PASS** |
+| **Hallucination Rate** | Derived as **1 − Faithfulness**; fraction of claims not grounded in the retrieved context. | **0.017** | ≤ 0.40 |  **PASS** |
 
-Per-topic breakdown from that run — this is what the earlier single-sample design couldn't show:
+Per-topic breakdown, `evals/reports/eval_report_20260712T172254.md` (6 sampled topics across the 3 recommendation categories):
 
-| Category | Dimension | Faithfulness | Relevancy |
-|---|---|---|---|
-| quick-win | delivery_mode + weather + region | 1.000 | 0.850 |
-| quick-win | vehicle + weather + delivery_mode | 1.000 | 0.853 |
-| short-term | partner | 1.000 | 0.817 |
-| short-term | weather + delivery_mode | 1.000 | 0.855 |
-| long-term | delivery_mode | 1.000 | 0.854 |
-| long-term | weather + delivery_mode | 0.455 | 0.826 |
+| Category | Dimension | Faithfulness | Relevancy | Context Precision | Hallucination Rate |
+|---|---|---|---|---|---|
+| quick-win | weather | 0.900 | 0.860 | 0.854 | 0.100 |
+| quick-win | vehicle | 1.000 | 0.846 | 0.927 | 0.000 |
+| short-term | partner | 1.000 | 0.855 | 1.000 | 0.000 |
+| short-term | delivery_mode | 1.000 | 0.892 | 0.806 | 0.000 |
+| long-term | delivery_mode | 1.000 | 0.876 | 0.685 | 0.000 |
+| long-term | weather | 1.000 | 0.846 | 0.976 | 0.000 |
 
-**Finding:** across repeated runs, the mean faithfulness still varies (observed range ~0.76–0.91) — averaging 6 topics didn't eliminate RAGAS's inherent per-claim judging noise. What it *did* change: each run now names which specific topic scored low (it isn't the same topic every time), instead of hiding that signal inside one opaque blended score. That's a materially more useful eval even though the aggregate number itself is still noisy — this is a known property of small-`n` LLM-as-judge metrics, not a retrieval regression.
+The eval report's top-level Summary section shows a dedicated RAG Evaluation (RAGAS) table alongside the 5-agent LLM-as-judge table. RAGAS runs on the same eval DB as the agent evals (`evals/db/delivery_predictions_eval.db`) — no separate large-scale dataset is needed.
 
-We also tested two retrieval-depth hypotheses to explain an earlier observed score drop — narrowing the final rerank stage to top-5, and broadening upstream retrieval (`TOP_K` 15→20, hybrid pre-filter 12→16). Neither reliably improved or stabilized faithfulness (broadening actually widened the run-to-run spread), so the pipeline's retrieval parameters (`TOP_K=15 → HYBRID_PRE_FILTER_N=12 → RERANK_TOP_N=8`) were kept as originally committed.
-
-RAGAS runs on the same eval DB as the agent evals (`evals/db/delivery_predictions_eval.db`) — no separate large-scale dataset is needed. The recommendation agent's input (prediction + diagnosis outputs) is already in the eval DB after the standard pipeline run.
-
-> RAGAS eval implementation: **[`evals/test_eval_rag.py`](evals/test_eval_rag.py)** · Design rationale: **[`docs/21-eval-flow-design.md`](docs/21-eval-flow-design.md)**
+> RAGAS eval implementation: **[`evals/test_eval_rag.py`](evals/test_eval_rag.py)** · Full design rationale: **[`docs/21-eval-flow-design.md`](docs/21-eval-flow-design.md)**
 
 ---
 
@@ -991,7 +993,7 @@ Agent outputs were independently scored by a human reviewer on the same three di
 | Predict Delivery Delays | 5.00 | 5.00 | Aligned |
 | Diagnose Delay Patterns | 5.00 | 5.00 | Aligned |
 | Recommendation Expert Agent | 5.00 | 5.00 | Aligned |
-| Simulate Delay Prediction | 4.67 | 3.67 | Human scored lower — simulation quality has room to improve |
+| Simulate Delay Prediction | 4.00 | 3.67 | Aligned (diff -0.33) — lowest-scoring agent of the five, simulation quality has the most room to improve |
 | Email Alert Agent | 5.00 | 5.00 | Aligned |
 
 **Reviewer note on model choice:** GPT-4.1-mini resulted in output of lower quality with human relevance scores of 2–3; GPT-5.4 produced better quality with scores of 5. This confirms GPT-5.4 as the appropriate model for this complexity.
@@ -1097,10 +1099,12 @@ Each recommendation references the relevant SLA clause together with the current
 
 | Metric | Latest run | Observed range across runs |
 |---------|------:|------:|
-| Faithfulness | **0.909** | 0.76 to 0.91 |
-| Answer Relevancy | **0.843** | 0.82 to 0.86 |
+| Faithfulness (groundedness) | **0.983** | 0.76 to 0.98 |
+| Answer Relevancy | **0.863** | 0.82 to 0.89 |
+| Context Precision (context relevance) | **0.875** | 0.82 to 0.91 |
+| Hallucination Rate (derived) | **0.017** | 0.02 to 0.24 |
 
-Both metrics exceed the **0.60 acceptance threshold** on every run, indicating high-quality retrieval grounding. The eval now scores faithfulness/relevancy per distinct SLA topic cited in the recommendations (n≈6 samples/run, up from a single blended sample) — see §20.3 for the per-topic breakdown and why the run-to-run range persists even after averaging.
+All four metrics pass their thresholds on every run, indicating grounded, on-topic, low-hallucination retrieval. Scored per distinct SLA topic cited in the recommendations (n≈6 samples/run) — see §20.3 for the design and per-topic breakdown.
 
 ### 21.6 Consolidated Business Impact
 
@@ -1109,7 +1113,7 @@ Both metrics exceed the **0.60 acceptance threshold** on every run, indicating h
 | **Delay Detection** | Stage 1 Recall: **81.5%** | Early identification of ~5,300 delayed shipments across 25,000 orders enables proactive intervention before SLA breach. |
 | **Severity Triage** | Stage 2 Accuracy: **63.7%** | Prioritises Short/Medium/Long delays, enabling smarter escalation and customer communication. |
 | **Analyst Productivity** | ~80% cycle-time reduction | Manual analysis reduced from 35–45 minutes to 10–20 minutes, saving **1,500–3,000 analyst minutes/day** (~0.5–1.5 FTE). |
-| **Recommendation Quality** | LLM Judge: **5.0/5**<br>Faithfulness: **0.909** (0.76–0.91 range)<br>Answer Relevancy: **0.843** (0.82–0.86 range) | SLA-grounded, auditable recommendations instead of generic LLM advice. |
+| **Recommendation Quality** | LLM Judge: **5.0/5**<br>Faithfulness: **0.983**, Answer Relevancy: **0.863**<br>Context Precision: **0.875**, Hallucination Rate: **0.017** | SLA-grounded, auditable recommendations instead of generic LLM advice. |
 | **Customer Alerting** | LLM Judge: **5.0/5**<br>~649 severity-matched alerts per 5,000 orders | Alerts only Medium and Long delays, reducing alert fatigue while improving customer communication. |
 | **Partner Accountability** | 27 SQLite tables<br>290 metadata entries<br>12 delay dimensions | Enables partner scorecards, historical trend analysis, and evidence-based SLA review discussions. |
 
@@ -1152,7 +1156,34 @@ Both metrics exceed the **0.60 acceptance threshold** on every run, indicating h
 
 ---
 ---
-## 23. Potential Future Extensions
+
+## 23. Current Implementation Status
+
+<sub>[↑ Back to TOC](#table-of-contents)</sub>
+
+This baseline (**Version 1**) is fully functional end-to-end — every layer below is implemented, running, and covered by automated tests/evals as of this submission.
+
+| Layer | Status | Evidence |
+|---|---|---|
+| ML prediction pipeline | COMPLETE | Two-stage Random Forest (89.6% accuracy / 81.5% recall Stage 1; 63.7% accuracy Stage 2), trained and evaluated — §20.1 |
+| Agent orchestration | COMPLETE | 5-agent pipeline (Predict / Diagnose / Simulate / Recommend / Email) + Master Orchestrator, OpenAI Agents SDK, plan-confirmation gate — §5, §9-10 |
+| RAG pipeline | COMPLETE | ChromaDB + hybrid pre-filter + cross-encoder reranking over a custom 36-section SLA corpus — §13 |
+| Persistence | COMPLETE | SQLite (27 tables), file-based freshness sidecars, ChromaDB vector store — §12, §14 |
+| MCP server | COMPLETE | FastMCP stdio server, 3 tools, process-isolated from the agent app — §9 |
+| UI | COMPLETE | Gradio 5-tab conversational interface with quick actions — §26 |
+| Automated evaluation | COMPLETE | 44/44 agent evals (LLM-as-judge across all 5 agents, RAGAS per-topic RAG scoring, human-baseline calibration) — §20 |
+| Unit / smoke tests | COMPLETE | 40/40 tests — MCP tool registration, feature engineering, Pydantic schemas, RAG/vectorstore checks — §19 |
+| Security guardrails | COMPLETE | Prompt-injection resistance, PII handling, tool-call scoping — §16 |
+| Observability | COMPLETE | Structured logging, RAG retrieval timing, audit sidecars — §15 |
+
+**What this baseline demonstrates:** a working multi-agent GenAI system that predicts delivery delays, diagnoses root causes, simulates what-if scenarios, generates SLA-grounded recommendations via RAG, and drafts customer communications — with automated evaluation proving output *quality*, not just that the system runs.
+
+**What it deliberately does not yet include** is detailed in §24 (Known Limitations), with the longer-term production roadmap in §25 (Potential Future Extensions) — most notably: synthetic rather than live data, batch rather than streaming processing, and a single-user, demonstration-grade deployment (SQLite/Gradio rather than production infrastructure).
+
+---
+---
+
+## 24. Known Limitations
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -1166,6 +1197,14 @@ Both metrics exceed the **0.60 acceptance threshold** on every run, indicating h
 | **LLM Architecture**        | Uses frontier LLMs without fine-tuned Small Language Models (SLMs) or intelligent model routing for cost optimization.                                                                 |
 | **Data & LLM Bias**         | The dataset may underrepresent certain carrier–region–weather combinations. LLM-generated insights may hallucinate in edge cases, and no fairness audit has been performed.            |
 
+---
+---
+
+## 25. Potential Future Extensions
+
+<sub>[↑ Back to TOC](#table-of-contents)</sub>
+
+This is a longer-term production roadmap, not a specific plan for the next submission milestone — the baseline above (§23) is the current scope; the items below are what a production deployment beyond this course would require.
 
 | **Phase**           | **Planned Enhancements**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1176,7 +1215,7 @@ Both metrics exceed the **0.60 acceptance threshold** on every run, indicating h
 ---
 ---
 
-## 24. Gradio UI App Screenshots
+## 26. Gradio UI App Screenshots
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -1216,7 +1255,7 @@ Both metrics exceed the **0.60 acceptance threshold** on every run, indicating h
 
 ---
 
-## 25. Licence
+## 27. Licence
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 

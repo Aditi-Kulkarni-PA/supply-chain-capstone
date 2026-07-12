@@ -1,0 +1,35 @@
+{
+  "generated": "2026-07-12T17:22:54",
+  "scores": {
+    "Predict Delivery Delays": {
+      "relevance": 5.0,
+      "faithfulness": 5.0,
+      "safety": 5.0,
+      "mean": 5.0
+    },
+    "Diagnose Delay Patterns": {
+      "relevance": 5.0,
+      "faithfulness": 5.0,
+      "safety": 5.0,
+      "mean": 5.0
+    },
+    "Recommendation Expert Agent": {
+      "relevance": 5.0,
+      "faithfulness": 5.0,
+      "safety": 5.0,
+      "mean": 5.0
+    },
+    "Simulate Delay Prediction": {
+      "relevance": 4.0,
+      "faithfulness": 3.0,
+      "safety": 5.0,
+      "mean": 4.0
+    },
+    "Email Alert Agent": {
+      "relevance": 5.0,
+      "faithfulness": 5.0,
+      "safety": 5.0,
+      "mean": 5.0
+    }
+  }
+}

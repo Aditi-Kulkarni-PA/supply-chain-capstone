@@ -11,9 +11,13 @@ MIN_EMAILS              = 3    # email agent must produce 3 rendered sample emai
 # ── LLM-as-judge (1–5 scale, mean across criteria) ───────────────────────────
 MIN_JUDGE_SCORE         = 3.0  # mean score must be >= this to pass
 
-# ── RAGAS thresholds (gated, run with -m ragas) ───────────────────────────────
-MIN_FAITHFULNESS        = 0.55  # RAGAS LLM scoring has ~3-5% variance; 0.55 is robust
+# ── RAGAS thresholds (runs as part of the default suite — no gating flag) ────
+# 0.60 is the documented acceptance bar for all four metrics; hallucination rate
+# is the complement of faithfulness, so its bar is the complement of 0.60.
+MIN_FAITHFULNESS        = 0.60
 MIN_ANSWER_RELEVANCY    = 0.60
+MIN_CONTEXT_PRECISION   = 0.60  # are retrieved SLA chunks actually relevant to the topic query?
+MAX_HALLUCINATION_RATE  = 0.40  # derived as 1 - faithfulness
 
 # ── Latency (seconds) ─────────────────────────────────────────────────────────
 MAX_PREDICT_LATENCY_S   = 600   # 5 000-row ML pipeline + LLM

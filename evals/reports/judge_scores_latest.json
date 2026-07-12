@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-12T15:00:59",
+  "generated": "2026-07-12T17:22:54",
   "scores": {
     "Predict Delivery Delays": {
       "relevance": 5.0,
@@ -20,22 +20,16 @@
       "mean": 5.0
     },
     "Simulate Delay Prediction": {
-      "relevance": 5.0,
-      "faithfulness": 4.0,
+      "relevance": 4.0,
+      "faithfulness": 3.0,
       "safety": 5.0,
-      "mean": 4.666666666666667
+      "mean": 4.0
     },
     "Email Alert Agent": {
       "relevance": 5.0,
       "faithfulness": 5.0,
       "safety": 5.0,
       "mean": 5.0
-    },
-    "RAG": {
-      "relevance": 4.0,
-      "faithfulness": 3.0,
-      "safety": 5.0,
-      "mean": 4.0
     }
   }
 }

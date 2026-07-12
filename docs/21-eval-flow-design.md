@@ -236,14 +236,30 @@ The fix isn't a retrieval-depth tweak (we tested narrowing the final rerank to t
 2. Selects up to 2 `recommended_actions` per category (quick-win / short-term / long-term) with a non-empty `sla_reference`.
 3. For each selected action, builds a topic query — `"What does the SLA say about {dimension} — {action}?"` — and calls `retrieve_sla_context(tool_output="", query_override=topic_query)` to retrieve that topic's own SLA chunks independently.
 4. Builds one RAGAS `SingleTurnSample` per topic (`response=action.sla_reference`, `retrieved_contexts=<that topic's chunks>`) — a real `n≈6` dataset.
-5. Scores the mean faithfulness/answer_relevancy across all topics, and reports a per-topic breakdown table (category, dimension, action, faithfulness, relevancy) alongside the aggregate — so a low score is attributable to a specific SLA citation, not lost inside one blended number.
+5. Scores four metrics per topic (see below), and reports a per-topic breakdown table (category, dimension, action, faithfulness, relevancy, context precision, hallucination rate) alongside the aggregate — so a low score is attributable to a specific SLA citation, not lost inside one blended number.
 
 **RAGAS Metrics (mean across ~6 topic samples):**
 
 | Metric | What it measures | Target |
 |--------|-----------------|--------|
-| `faithfulness` | SLA reference claims stay within their own topic's retrieved SLA context — no hallucinated policies | ≥ 0.55 |
+| `faithfulness` (groundedness) | SLA reference claims stay within their own topic's retrieved SLA context — no hallucinated policies | ≥ 0.60 |
 | `answer_relevancy` | Each `sla_reference` actually answers its topic's question | ≥ 0.60 |
+| `llm_context_precision_without_reference` (context relevance) | Are the retrieved SLA chunks actually relevant to the topic query, independent of what the agent did with them? Uses the same `user_input`/`retrieved_contexts`/`response` fields already collected per sample — no extra retrieval call. | ≥ 0.60 |
+| `hallucination_rate` | Derived as `1 - faithfulness` (not a separate RAGAS metric / LLM call) — fraction of claims not grounded in context | ≤ 0.40 |
+
+Added 2026-07-12: the eval originally scored only `faithfulness` + `answer_relevancy`. `LLMContextPrecisionWithoutReference` was added (reuses existing sample fields, so no new retrieval or data collection) and `hallucination_rate` is now explicitly reported as the complement of faithfulness — closing the gap against a 4-dimension rubric (context relevance / groundedness / answer relevance / hallucination rate) that the original 2-metric design only half covered. Also fixed a report-writer bug in `conftest.py`: the RAGAS score table's Pass/Fail column assumed every metric is higher-is-better, which silently inverted the correct/incorrect read for `hallucination_rate` (a low value is good). The writer now branches on metric name for the correct pass direction.
+
+#### Query design fix — Context Precision was a bare pass (2026-07-12)
+
+`llm_context_precision_without_reference` initially scored 0.552 — a bare pass against the 0.55 threshold, close enough to look like it might have been reverse-engineered from the result (it wasn't; the threshold was set before the first run, just copied from `faithfulness`'s pre-existing 0.55 without independently justifying it for this metric).
+
+Root cause, found by cross-referencing the actual query text against real scores: the per-topic retrieval query was `f"What does the SLA say about {action.dimension} — {action.action}?"` — concatenating a raw `dimension` field with the recommendation's prescriptive **action** sentence (e.g. "Pause express dispatches in stormy lanes..."). Checking real section headers in `delivery_sla_github_ready.md` (§3.2 "Weather-Specific Operational Protocols", §7.2 "Partner Performance Tiers and Routing Priority") confirmed the SLA doc is organized by operational **condition**, not by recommended remedy. Same `dimension` value ("delivery_mode") produced wildly different precision (0.321 vs 0.812 vs 0.342) across different action-sentence phrasings in one run — the action sentence, not the dimension, was driving the noise.
+
+Fix: split into two separate strings per topic instead of one.
+- `retrieval_query` — terse, keyword-dense, built from `action.supporting_data` (the actual operational condition, e.g. `"weather: express + stormy 100% delayed (206/206)"`) plus a single primary dimension. Compound dimensions (`"delivery_mode + weather + region"`) are de-duplicated to the first token — asking about 3 concepts at once dilutes the embedding against a doc organized by single topic per section. This is the string actually passed to `retrieve_sla_context(query_override=...)`.
+- `topic_question` — a natural-language question over the same condition, used only as RAGAS's `user_input` field (what `AnswerRelevancy` and `ContextPrecision` judge against). Kept separate because those metrics want a coherent question to reason about, even though a terse string retrieves better.
+
+Result across four consecutive runs: Context Precision 0.552 → 0.825 → 0.907 → 0.866 — a reproducible fix, not noise. The eval report's top-level `## Summary` section now also includes a dedicated "RAG Evaluation (RAGAS)" table (pulled from whichever record carries `ragas_scores`) alongside the 5-agent LLM-as-judge table, rather than leaving RAGAS scores only inside Detailed Results.
 
 **Known limitation:** averaging 6 topics did not eliminate run-to-run variance in the aggregate score (observed range ~0.76–0.91 faithfulness across repeated runs) — RAGAS's per-claim judging noise persists at this sample size. What changed is diagnostic: the per-topic table now shows *which* citation was weak on a given run (it isn't the same topic each time), which is actionable in a way a single blended score never was.
 
