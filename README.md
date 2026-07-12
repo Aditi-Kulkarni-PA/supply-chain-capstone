@@ -373,7 +373,7 @@ Taken together, the system enables logistics operations teams to query a convers
 │   ├── db/                            ← Eval-only SQLite DB (never production)
 │   │   └── delivery_predictions_eval.db  ← Shared DB for agent evals + RAGAS
 │   ├── human_baseline/
-│   │   └── human_scores.xls           ← Human-reviewed scores for judge calibration
+│   │   └── human_scores.xlsx          ← Human-reviewed scores for judge calibration (+ 50-record detail sheets)
 │   └── reports/                       ← Auto-generated eval reports (markdown + JSON)
 │
 └── supply_chain_delivery_app/         ← Multi-agent app module
@@ -986,35 +986,41 @@ The eval report's top-level Summary section shows a dedicated RAG Evaluation (RA
 
 ### 20.4 Human Baseline Calibration
 
-> **Note:** Human baseline calibrated on **5 representative samples** and is **not** a full evaluation dataset.
+> **Note:** 5 agents scored at the top level. Predict and Simulate are each backed by **50 individually human-reviewed records** (averaged into their agent-level row below); Diagnose, Recommend, and Email remain single-sample. Not a full evaluation dataset.
 
 ### Overall Human Evaluation of Agents
 
 | **Agent** | **Human Relevance** | **Human Faithfulness** | **Human Safety** | **Mean** | **Result** |
 |------------|:-------------------:|:----------------------:|:----------------:|---------:|:----------:|
-| Predict Delivery Delays | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
-| Diagnose Delay Patterns | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
-| Recommendation Expert | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
-| Simulate Delay Prediction | 3.0/5 | 3.0/5 | 5.0/5 | **3.67** | ⚠️ PARTIAL |
-| Email Alert Agent | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
+| Predict Delivery Delays | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
+| Diagnose Delay Patterns | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
+| Recommendation Expert | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
+| Simulate Delay Prediction | 3.0/5 | 3.0/5 | 5.0/5 | **3.67** | PASS |
+| Email Alert Agent | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
 
-#### Predict Delivery Sample Records - LLM Inferences from Features
+#### Predict Delivery Sample Records — LLM Inferences from Features
 
-| **Delivery ID** | **Human Relevance** | **Human Faithfulness** | **Human Safety** | **Mean** | **Result** |
-|----------------:|:-------------------:|:----------------------:|:----------------:|---------:|:----------:|
-| 16535 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
-| 3775 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
-| 8841 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
-
-#### Simulation Sample Records - LLM Inferences from Features
+Average of all 50 reviewed records (5.00 / 5.00 / 5.00) matches the Predict row above. First 5 shown — full set: `evals/human_baseline/human_scores.xlsx` → `PredictDelayRecords` sheet.
 
 | **Delivery ID** | **Human Relevance** | **Human Faithfulness** | **Human Safety** | **Mean** | **Result** |
 |----------------:|:-------------------:|:----------------------:|:----------------:|---------:|:----------:|
-| 3775 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** |  PASS |
-| 8841 | 3.0/5 | 5.0/5 | 5.0/5 | **4.33** |  PASS |
-| 23052 | 4.0/5 | 5.0/5 | 5.0/5 | **4.66** |  PASS |
-| 23679 | 4.0/5 | 5.0/5 | 5.0/5 | **4.66** |  PASS |
-| 7826 | 2.0/5 | 5.0/5 | 5.0/5 | **4.00** |  PASS |
+| 16535 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
+| 3775 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
+| 8841 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
+| 14135 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
+| 16799 | 5.0/5 | 5.0/5 | 5.0/5 | **5.00** | PASS |
+
+#### Simulation Sample Records — LLM Inferences from Features
+
+Average of all 50 reviewed records (3.00 / 3.00 / 5.00) matches the Simulate row above. First 5 shown — full set: `evals/human_baseline/human_scores.xlsx` → `SimulationRecords` sheet.
+
+| **Delivery ID** | **Human Relevance** | **Human Faithfulness** | **Human Safety** | **Mean** | **Result** |
+|----------------:|:-------------------:|:----------------------:|:----------------:|---------:|:----------:|
+| 3775 | 2.0/5 | 3.0/5 | 5.0/5 | **3.33** | PASS |
+| 8841 | 2.0/5 | 3.0/5 | 5.0/5 | **3.33** | PASS |
+| 23052 | 2.0/5 | 3.0/5 | 5.0/5 | **3.33** | PASS |
+| 23679 | 2.0/5 | 3.0/5 | 5.0/5 | **3.33** | PASS |
+| 7826 | 2.0/5 | 3.0/5 | 5.0/5 | **3.33** | PASS |
 
 #### Human Baseline vs LLM-as-a-Judge Comparison
 
@@ -1030,7 +1036,7 @@ The eval report's top-level Summary section shows a dedicated RAG Evaluation (RA
 
 >**Reviewer note on model choice:** GPT-4.1-mini resulted in output of lower quality with human relevance scores of 2–3; GPT-5.4 produced better quality with scores of 5. This confirms GPT-5.4 as the appropriate model for this complexity.
 
-Human scores: **[`evals/human_baseline/human_scores.xls`](evals/human_baseline/human_scores.xls)**  
+Human scores: **[`evals/human_baseline/human_scores.xlsx`](evals/human_baseline/human_scores.xlsx)**  
 Baseline report: **[`evals/reports/`](evals/reports/)**
 
 ```bash

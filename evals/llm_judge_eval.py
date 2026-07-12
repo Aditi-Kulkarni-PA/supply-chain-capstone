@@ -4,26 +4,33 @@ Compare LLM-as-judge scores against human baseline scores.
 Usage:
     uv run python evals/llm_judge_eval.py
 
-Fill in human_relevance, human_faithfulness, human_safety (1-5) in
-evals/human_baseline/human_scores.xls, then run this script.
+Fill in human_relevance, human_faithfulness, human_safety (1-5) in the
+"human_scores" sheet of evals/human_baseline/human_scores.xlsx, then run
+this script. (Predict / Simulate additionally have 50-record detail sheets —
+see test_eval_human_baseline.py, which is the full pytest-based version of
+this comparison and covers those too. This script is the quick console-only
+check against just the 5-row agent-level summary.)
 """
 
 import sys
-import xlrd
 from pathlib import Path
 
-BASELINE_XLS = Path(__file__).parent / "human_baseline" / "human_scores.xls"
-DIMENSIONS   = ["relevance", "faithfulness", "safety"]
+import openpyxl
+
+BASELINE_XLSX = Path(__file__).parent / "human_baseline" / "human_scores.xlsx"
+DIMENSIONS    = ["relevance", "faithfulness", "safety"]
 
 
-def load_scores(xls_path: Path) -> tuple[list[dict], list[str]]:
-    wb = xlrd.open_workbook(str(xls_path))
-    ws = wb.sheet_by_index(0)
-    headers = [str(c).strip() for c in ws.row_values(0)]
+def load_scores(xlsx_path: Path) -> tuple[list[dict], list[str]]:
+    wb = openpyxl.load_workbook(str(xlsx_path), data_only=True)
+    ws = wb["human_scores"]
+    headers = [str(c.value).strip() if c.value is not None else "" for c in ws[1]]
     rows, skipped = [], []
-    for i in range(1, ws.nrows):
-        vals = ws.row_values(i)
-        row  = {headers[j]: str(vals[j]).strip() if vals[j] != "" else "" for j in range(len(headers))}
+    for i, row_cells in enumerate(ws.iter_rows(min_row=2), start=2):
+        vals = [c.value for c in row_cells]
+        if all(v is None for v in vals):
+            continue
+        row = {headers[j]: str(vals[j]).strip() if vals[j] not in (None, "") else "" for j in range(len(headers))}
         if all((row.get(f"human_{d}") or "").strip() for d in DIMENSIONS):
             rows.append(row)
         else:
@@ -32,11 +39,11 @@ def load_scores(xls_path: Path) -> tuple[list[dict], list[str]]:
 
 
 def main() -> None:
-    if not BASELINE_XLS.exists():
-        print(f"XLS not found: {BASELINE_XLS}")
+    if not BASELINE_XLSX.exists():
+        print(f"XLSX not found: {BASELINE_XLSX}")
         sys.exit(1)
 
-    rows, skipped = load_scores(BASELINE_XLS)
+    rows, skipped = load_scores(BASELINE_XLSX)
 
     if skipped:
         print(f"Skipped (human scores missing): {', '.join(skipped)}")
@@ -44,7 +51,7 @@ def main() -> None:
     if not rows:
         print(
             "No rows have human scores filled in yet.\n"
-            f"Open {BASELINE_XLS} in Excel and fill in human_relevance, "
+            f"Open {BASELINE_XLSX} in Excel and fill in human_relevance, "
             "human_faithfulness, human_safety (1-5) for each sample."
         )
         sys.exit(0)

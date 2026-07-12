@@ -311,10 +311,41 @@ The human-baseline comparison (`test_eval_human_baseline.py`) reads the LLM
 side from the judge's in-memory records when it runs inside the same pytest
 session as the agent evals (no file write-ordering dependence), else from
 `judge_scores_latest.json` — so it always reflects the most recent
-eval run — while human scores continue to come from `human_scores.xls`
-(never modified). The `llm_*` columns in the XLS are used only as a fallback
+eval run — while human scores continue to come from `human_scores.xlsx`
+(never modified). The `llm_*` columns in the sheet are used only as a fallback
 when no eval run has been recorded, and the report header states which source
 was used.
+
+---
+
+## Update (2026-07-12) — Human Baseline Migrated to .xlsx, Predict/Simulate Now 50 Records Each
+
+`human_scores.xls` was replaced with `human_scores.xlsx` (a genuine format change,
+not a rename — `file` reports it as "Microsoft Excel 2007+"). `xlrd>=2.0.2`
+cannot read `.xlsx` at all (support was dropped upstream), so `test_eval_human_baseline.py`
+and `llm_judge_eval.py` were migrated to `openpyxl` — both were completely
+broken (`FileNotFoundError` on the old path) until this fix. `xlrd` removed
+from `pyproject.toml`; `openpyxl` added.
+
+The workbook now has three sheets, not one:
+- `human_scores` — unchanged: 5 rows, one per agent, the sheet every test and
+  the report's Summary/Relevance/Faithfulness/Safety tables key off.
+- `PredictDelayRecords` / `SimulationRecords` — new: 50 individually
+  human-reviewed records each, backing the Predict / Simulate rows in
+  `human_scores` as their mean. `_load()` now targets the `human_scores` sheet
+  by name explicitly (was `sheet_by_index(0)` — fragile now that there are
+  multiple sheets); a new `_load_detail_sheet()` reads the other two.
+
+Added `test_detail_records_match_summary` — asserts the two detail-sheet
+averages equal their agent's row in `human_scores` to within 0.01, so the
+data can't silently drift out of sync (one edited without the other). Verified
+once by hand before writing the test: Predict detail mean (5.00, 5.00, 5.00)
+and Simulate detail mean (3.00, 3.00, 5.00) both matched exactly.
+
+Report gets a new "## 5. Detailed Per-Record Reviews" section: up to
+`DETAIL_DISPLAY_CAP` (5) rows per agent, plus the same average-matches-summary
+check inline, plus a pointer to the full 50-row sheet in the workbook —
+matching README's parallel tables in §20.4.
 
 ---
 
