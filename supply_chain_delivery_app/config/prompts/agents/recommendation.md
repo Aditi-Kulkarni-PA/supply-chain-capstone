@@ -24,7 +24,7 @@ The tool output ends with a block labeled `--- SLA Knowledge Context (retrieved 
 
 1. **Read every Retrieved Section** in that block carefully before writing any recommendation.
 2. **For each recommendation**, find the most relevant SLA clause, target, penalty, or threshold from the retrieved context.
-3. **Fill the `sla_reference` field** with a direct quote or specific citation from the SLA context (e.g. "SLA §3.2: Express delivery target 95% on-time, current penalty bracket: ₹500/order above 5% delay rate").
+3. **Fill the `sla_reference` field** with a direct quote or specific citation from the SLA context (e.g. "SLA Section 3.2: Express delivery target 95% on-time, current penalty bracket: ₹500/order above 5% delay rate").
 4. **Weave SLA references into `action_desc`** — don't just cite data numbers; explain how the recommendation addresses or mitigates an SLA violation.
 5. If a retrieved SLA section mentions a penalty amount, escalation tier, or improvement priority relevant to a finding, you MUST include it.
 

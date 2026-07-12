@@ -1,14 +1,14 @@
 # 23 — Code Simplification, Consistency Refactoring & Test-Driven Fixes
 
 **Dates:** 2026-07-04 → 2026-07-12
-**Scope:** started as `supply_chain_delivery_app/` only (§1–§9); test-driven fixes later extended into `prediction_pipeline/` (simulate tool, `daily_predict.py`, DB metadata) and `evals/` (conftest judge-score export, human-baseline source, `eval_config.py`) — each extension documented in its section.
+**Scope:** started as `supply_chain_delivery_app/` only (Section 1–Section 9); test-driven fixes later extended into `prediction_pipeline/` (simulate tool, `daily_predict.py`, DB metadata) and `evals/` (conftest judge-score export, human-baseline source, `eval_config.py`) — each extension documented in its section.
 **Constraint honored:** no folder names, file names, agent names, or tool names were changed. One stray duplicate prompt file was deleted (approved).
 
 ## Document Map
 
-| § | Change | Type |
+| Section | Change | Type |
 |---|---|---|
-| 1–7 | Initial refactor: WYSIWYG loader (§2), sub-agent factory (§3), handler/helpers cleanup (§4–§6), verification (§7) | Refactor |
+| 1–7 | Initial refactor: WYSIWYG loader (Section 2), sub-agent factory (Section 3), handler/helpers cleanup (Section 4–Section 6), verification (Section 7) | Refactor |
 | 8 | Prompt overlap dedup (master vs shared layers) | Prompt |
 | 9 | Items intentionally not changed | Record |
 | 10 | Test-run fixes: simulation bug (10.1), bold formatting (10.2–10.3), conversational chatbot (10.4), double-confirmation bug (10.5), enriched plan labels (10.6) | Bug fix |
@@ -27,7 +27,7 @@
 
 Documentation was kept in sync throughout: READMEs, `docs/01/03/05/08/09/11–15/18–21` updated per change; Iteration 8 rows added to the prompt evolution log and README version-history tables; Format-agent status notes placed across all documents.
 
-Note: the §1 line-count table reflects the initial refactor (§1–§9) only; later sections change several of those files again.
+Note: the Section 1 line-count table reflects the initial refactor (Section 1–Section 9) only; later sections change several of those files again.
 
 ---
 
@@ -45,11 +45,11 @@ Note: the §1 line-count table reflects the initial refactor (§1–§9) only; l
 | `tools/email_customers.py` | 218 | 218 | Fixed mis-indented comments; removed placeholder-less f-strings |
 | `tools/rag_knowledge.py` | 425 | 369 | Removed 50-line commented-out dead code; removed unused constant |
 | `README.md` | 266 | 267 | Updated prompt-assembly description to match new loader |
-| `config/prompts/agents/master_expert.md` | 231 | 199 | Removed section duplicating chatbot_behavior.md (see §8) |
-| `config/prompts/shared/security_guardrails.md` | 80 | 78 | Removed stray duplicate heading at end of file (see §8) |
+| `config/prompts/agents/master_expert.md` | 231 | 199 | Removed section duplicating chatbot_behavior.md (see Section 8) |
+| `config/prompts/shared/security_guardrails.md` | 80 | 78 | Removed stray duplicate heading at end of file (see Section 8) |
 | `config/prompts/agents/recommendation 2.md` | — | deleted | Stray duplicate, never loaded by code |
 
-A full pre-refactor backup of the app folder is available for diffing (see §7).
+A full pre-refactor backup of the app folder is available for diffing (see Section 7).
 
 ---
 
@@ -187,7 +187,7 @@ use / different model), and the master agent is unchanged.
   `_tabs(show_pending=True)`. The `_PENDING` hourglass HTML moved to module
   level next to `_WELCOME_MSG`. Rendering output is identical.
 - `mcp_tool_names = set(PIPELINE_TOOL_NAMES)` replaces the duplicated
-  hard-coded set (see §3.2).
+  hard-coded set (see Section 3.2).
 - Removed `is_file_fresh` from the `helpers.app_utils` import list — it was
   imported but never used in this module.
 - Everything else — caching, confirmation flow, streaming loop, Gradio UI
@@ -228,7 +228,7 @@ use / different model), and the master agent is unchanged.
   side over 17 representative queries (single-intent, multi-intent, composite
   SLA/KPI phrasing, full-pipeline triggers, greetings, gibberish, quick-action
   text) × 3 freshness scenarios (none/all/predict-only fresh) — 51 cases,
-  zero differences (see §7).
+  zero differences (see Section 7).
 - `resolve_confirmation()`: removed the dead `pending_query = ""` assignment
   (a no-op on a local variable) and replaced it with a comment stating the
   intent; all return paths identical. Verified against the old implementation
@@ -245,7 +245,7 @@ use / different model), and the master agent is unchanged.
 ### 5.2 `helpers/logging_utils.py`
 
 Now the single home for all logging concerns: `setup_run_logger()` (unchanged)
-plus the token-usage extraction helpers moved from the chat app (§4).
+plus the token-usage extraction helpers moved from the chat app (Section 4).
 
 ### 5.3 `helpers/post_processing.py`
 
@@ -314,7 +314,7 @@ prerequisites).
    `_keep_or_pending`, `WebSearchTool`, `_EMBED_DIM`, aliased `_json./_re./_time.`,
    `__import__`, `tasks.yaml`) — no references remain.
 6. The full pre-refactor copy of the app folder was saved before any edit and
-   used for the equivalence tests and line-count diffs in §1.
+   used for the equivalence tests and line-count diffs in Section 1.
 
 **Recommended local check** (needs your venv with the OpenAI Agents SDK):
 
@@ -442,7 +442,7 @@ rows reached the UI in either run.
   original/simulated severity exactly; map informal wording to valid values
   ("severe/extreme/bad" → stormy, etc.); put changed conditions in `changes`,
   never in `filters`; on tool error return an empty list (no fabrication).
-- `master_expert.md` §4/§7b: when the tool errors or matches no rows, QUOTE
+- `master_expert.md` Section 4/Section 7b: when the tool errors or matches no rows, QUOTE
   the tool's message in `simulate_summary`; never report it as "ran with no
   changes". A partial `simulate_rows` list is now expected (app reads full
   results from disk).
@@ -476,7 +476,7 @@ Two compounding causes:
 **Fixes:**
 - `MasterOutput.chat_response` (new optional field, default ""): direct
   answers for informational questions.
-- `master_expert.md` new §9 "Conversational Answers": answer informational
+- `master_expert.md` new Section 9 "Conversational Answers": answer informational
   questions from fresh prior results/definitions in `chat_response` without
   re-running tools; leave empty when analysis tools run.
 - `chatbot_behavior.md`: distinguishes informational questions (answer
@@ -502,7 +502,7 @@ Two compounding causes:
    the master agent to present a plan before calling tools. Before the
    `chat_response` field existed the master had no way to display its plan,
    so the conflict was invisible; once conversational output became possible
-   (§10.4), the master's own plan surfaced → double confirmation.
+   (Section 10.4), the master's own plan surfaced → double confirmation.
 2. **Pending-query recovery grabbed "yes" as the query.** When the master
    asks "Shall I proceed?" there is no stashed pending query, so the gate
    recovers it by walking chat history back to the last user message — which
@@ -589,7 +589,7 @@ simulate row was silently given the predict agent's scores (showing 5.00
 while the eval report said 4.67). Keyword order flipped so "simul" is
 checked first and "predict" last; verified against all five real labels. Caveat for interpretation: the human scores in the
 XLS were given for June 25 outputs; a fully clean calibration still requires
-re-scoring fresh outputs by hand (see §10 discussion), but the LLM side is
+re-scoring fresh outputs by hand (see Section 10 discussion), but the LLM side is
 now always current.
 
 ---
@@ -635,7 +635,7 @@ emitted no status during pure generation.
   in tests/evals reads it. The app now captures the predict sub-agent's raw
   JSON from the `tool_call_output_item` stream event and parses/validates the
   {delivery_id, llm_insights} rows itself (`_parse_predict_rows`, each row
-  validated as `RowEnrichment`). The master prompt (§0, §2, §8) now says to
+  validated as `RowEnrichment`). The master prompt (Section 0, Section 2, Section 8) now says to
   leave predict_rows EMPTY; the field remains in the schema with a default
   for backward compatibility, and master-copied rows still win if present.
 - **Composing heartbeat.** The streaming loop now appends
@@ -690,7 +690,7 @@ overwrite tabs for tools that didn't run" behaviour.
 
 **Effect:** the master's final generation shrinks from thousands of tokens of
 re-serialized rows to a handful of short fields — directly reducing the
-15-30s post-"output received" delay (§13) — and the display data path has a
+15-30s post-"output received" delay (Section 13) — and the display data path has a
 single source of truth: sub-agent output → stream capture → deterministic
 post-processing.
 
@@ -803,7 +803,7 @@ counts, hotspots, output size) between started/completed.
 **CrewAI heading cleanup.** All six sub-agent prompts renamed:
 `## Role` → `## Purpose`, `## Goal` → `## Objective`,
 `## Backstory` → `## Context`. Safe because the WYSIWYG loader no longer
-parses section names (the old Role/Goal/Backstory parser was removed in §2);
+parses section names (the old Role/Goal/Backstory parser was removed in Section 2);
 verified no CrewAI headings remain and assembled prompts contain the new
 sections. App README updated.
 
@@ -934,8 +934,8 @@ actually ran (e.g. `pytest tests/ --collect-only`) — overwriting a real
 40/40 report with a bogus all-zero one. Added a guard: if no tests ran, leave
 the existing report untouched.
 
-Docs updated to match: `README.md` §20.2 (predict averaging note), §20.3 and
-§21.5/21.6 (RAG eval numbers and per-topic design), and `docs/21-eval-flow-design.md`
-(§6 rewritten; stale `ragas`-marker/gating text left over from §21's audit
+Docs updated to match: `README.md` Section 20.2 (predict averaging note), Section 20.3 and
+Section 21.5/21.6 (RAG eval numbers and per-topic design), and `docs/21-eval-flow-design.md`
+(Section 6 rewritten; stale `ragas`-marker/gating text left over from Section 21's audit
 also cleaned up; dated update note added).
 

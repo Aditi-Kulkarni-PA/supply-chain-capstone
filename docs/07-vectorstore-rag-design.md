@@ -65,7 +65,7 @@ The store is built once and reused across sessions. It auto-rebuilds only if the
 Two-stage langchain pipeline applied to the SLA markdown:
 
 **Stage 1 — `MarkdownHeaderTextSplitter`**  
-Splits on `#`, `##`, `###` headings. Preserves header hierarchy as metadata per chunk. This keeps SLA section context intact (e.g. a chunk knows it belongs to `§3.2 Express Delivery Targets`).
+Splits on `#`, `##`, `###` headings. Preserves header hierarchy as metadata per chunk. This keeps SLA section context intact (e.g. a chunk knows it belongs to `Section 3.2 Express Delivery Targets`).
 
 **Stage 2 — `RecursiveCharacterTextSplitter`**  
 Further splits oversized sections. Chunk target: 500 tokens (~2,000 chars). Overlap: 200 chars (~50 tokens) between consecutive chunks to prevent context loss at boundaries.

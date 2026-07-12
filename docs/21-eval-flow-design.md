@@ -29,7 +29,7 @@ The RAG pipeline (`retrieve_sla_context`) is embedded inside `recommend_actions`
 3. **Isolated eval DBs**: Evals write to `evals/db/delivery_predictions_eval.db` and `evals/db/delivery_predictions_eval_ragas.db`. Production DB is never touched.
 4. **Full production input**: All evals run against the full 5 000-row input (`daily_delivery_logistics_1.csv`). The judge evaluates final text output — cost is determined by output length, not input size.
 5. **LLM-as-judge on all 5 agents**: One LLM call per agent scoring relevance, faithfulness, and safety on a 1–5 scale.
-6. **RAGAS on real recommendation output, sampled per-topic**: `recommend_actions()` runs once per eval, same as production. RAGAS then scores faithfulness/answer-relevancy per distinct SLA topic cited in the output (see §6) rather than one blended sample — see "Update (2026-07-12)" at the bottom of this doc below for why.
+6. **RAGAS on real recommendation output, sampled per-topic**: `recommend_actions()` runs once per eval, same as production. RAGAS then scores faithfulness/answer-relevancy per distinct SLA topic cited in the output (see Section 6) rather than one blended sample — see "Update (2026-07-12)" at the bottom of this doc below for why.
 7. **Structured output as ground truth**: Pydantic models define the schema contract — passing schema validation is the baseline check for every agent.
 
 ---
@@ -253,7 +253,7 @@ Added 2026-07-12: the eval originally scored only `faithfulness` + `answer_relev
 
 `llm_context_precision_without_reference` initially scored 0.552 — a bare pass against the 0.55 threshold, close enough to look like it might have been reverse-engineered from the result (it wasn't; the threshold was set before the first run, just copied from `faithfulness`'s pre-existing 0.55 without independently justifying it for this metric).
 
-Root cause, found by cross-referencing the actual query text against real scores: the per-topic retrieval query was `f"What does the SLA say about {action.dimension} — {action.action}?"` — concatenating a raw `dimension` field with the recommendation's prescriptive **action** sentence (e.g. "Pause express dispatches in stormy lanes..."). Checking real section headers in `delivery_sla_github_ready.md` (§3.2 "Weather-Specific Operational Protocols", §7.2 "Partner Performance Tiers and Routing Priority") confirmed the SLA doc is organized by operational **condition**, not by recommended remedy. Same `dimension` value ("delivery_mode") produced wildly different precision (0.321 vs 0.812 vs 0.342) across different action-sentence phrasings in one run — the action sentence, not the dimension, was driving the noise.
+Root cause, found by cross-referencing the actual query text against real scores: the per-topic retrieval query was `f"What does the SLA say about {action.dimension} — {action.action}?"` — concatenating a raw `dimension` field with the recommendation's prescriptive **action** sentence (e.g. "Pause express dispatches in stormy lanes..."). Checking real section headers in `delivery_sla_github_ready.md` (Section 3.2 "Weather-Specific Operational Protocols", Section 7.2 "Partner Performance Tiers and Routing Priority") confirmed the SLA doc is organized by operational **condition**, not by recommended remedy. Same `dimension` value ("delivery_mode") produced wildly different precision (0.321 vs 0.812 vs 0.342) across different action-sentence phrasings in one run — the action sentence, not the dimension, was driving the noise.
 
 Fix: split into two separate strings per topic instead of one.
 - `retrieval_query` — terse, keyword-dense, built from `action.supporting_data` (the actual operational condition, e.g. `"weather: express + stormy 100% delayed (206/206)"`) plus a single primary dimension. Compound dimensions (`"delivery_mode + weather + region"`) are de-duplicated to the first token — asking about 3 concepts at once dilutes the embedding against a doc organized by single topic per section. This is the string actually passed to `retrieve_sla_context(query_override=...)`.
@@ -346,7 +346,7 @@ constants are unchanged from the original committed values.
 
 The actual fix, per repo owner direction: since the recommendation agent's own
 instruction never varies, vary the *retrieval query* per distinct SLA topic the
-agent's output already cites instead. See §6 above for the resulting design —
+agent's output already cites instead. See Section 6 above for the resulting design —
 `query_override` on `retrieve_sla_context()`, up to 2 sampled actions per
 category, one RAGAS sample per topic (n≈6), plus a per-topic breakdown table in
 the report. `conftest.py`'s RAG→Recommendation merge logic (which folds RAGAS

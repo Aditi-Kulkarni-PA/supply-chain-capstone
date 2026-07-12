@@ -2,7 +2,7 @@
 
 ## Purpose
 
-> **Status update (2026-07-04):** the Format Summary agent is no longer called in the main flow. All display formatting is deterministic in `helpers/post_processing.py`, and the app captures sub-agent outputs directly from the tool stream (see `docs/23` §14). The agent remains defined in `delivery_agents.py` (with `format_summary.md` intact) and can be re-attached to the master's tool list for future use/changes; this document describes its original design.
+> **Status update (2026-07-04):** the Format Summary agent is no longer called in the main flow. All display formatting is deterministic in `helpers/post_processing.py`, and the app captures sub-agent outputs directly from the tool stream (see `docs/23` Section 14). The agent remains defined in `delivery_agents.py` (with `format_summary.md` intact) and can be re-attached to the master's tool list for future use/changes; this document describes its original design.
 
 The Format Summary agent is an internal-only agent invoked by the Master Orchestrator **after all specialist agents have completed**. It formats the text summaries produced by each upstream agent into consistent, structured Markdown before the content is rendered in the Gradio UI chat panel. It is not accessible to end users directly and receives no user input.
 

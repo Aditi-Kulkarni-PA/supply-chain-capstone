@@ -3,7 +3,7 @@
 **IIIT Bangalore / upGrad — Post Graduate Diploma in ML & AI — Capstone Project**  
 **Author:** Aditi Kulkarni
 
-> **Submission: Version 1 (Baseline).** This is the end-to-end functional, modular, reproducible baseline described in No.23 [Current Implementation Status](#23-current-implementation-status). It is not the final submission — see No.24 [Known Limitations](#24-known-limitations) for what's out of scope at this stage, and No.25 [Potential Future Extensions](#25-potential-future-extensions) for the longer-term production roadmap.
+> **Submission: Version 1 (Baseline).** This is the end-to-end functional, modular, reproducible baseline described in Section-23 [Current Implementation Status](#23-current-implementation-status). It is not the final submission — see Section-24 [Known Limitations](#24-known-limitations) for what's out of scope at this stage, and Section-25 [Potential Future Extensions](#25-potential-future-extensions) for the longer-term production roadmap.
 
 ---
 
@@ -1095,7 +1095,7 @@ ChromaDB >> Hybrid Retrieval >> Cross-Encoder Re-ranking
 
 Each recommendation references the relevant SLA clause together with the current operational metric and required threshold.
 
-#### RAG Evaluation (RAGAS, per-topic sampling — see §20.3)
+#### RAG Evaluation (RAGAS, per-topic sampling — see Section 20.3)
 
 | Metric | Latest run | Observed range across runs |
 |---------|------:|------:|
@@ -1104,7 +1104,7 @@ Each recommendation references the relevant SLA clause together with the current
 | Context Precision (context relevance) | **0.875** | 0.82 to 0.91 |
 | Hallucination Rate (derived) | **0.017** | 0.02 to 0.24 |
 
-All four metrics pass their thresholds on every run, indicating grounded, on-topic, low-hallucination retrieval. Scored per distinct SLA topic cited in the recommendations (n≈6 samples/run) — see §20.3 for the design and per-topic breakdown.
+All four metrics pass their thresholds on every run, indicating grounded, on-topic, low-hallucination retrieval. Scored per distinct SLA topic cited in the recommendations (n≈6 samples/run) — see Section 20.3 for the design and per-topic breakdown.
 
 ### 21.6 Consolidated Business Impact
 
@@ -1165,20 +1165,20 @@ This baseline (**Version 1**) is fully functional end-to-end — every layer bel
 
 | Layer | Status | Evidence |
 |---|---|---|
-| ML prediction pipeline | COMPLETE | Two-stage Random Forest (89.6% accuracy / 81.5% recall Stage 1; 63.7% accuracy Stage 2), trained and evaluated — §20.1 |
-| Agent orchestration | COMPLETE | 5-agent pipeline (Predict / Diagnose / Simulate / Recommend / Email) + Master Orchestrator, OpenAI Agents SDK, plan-confirmation gate — §5, §9-10 |
-| RAG pipeline | COMPLETE | ChromaDB + hybrid pre-filter + cross-encoder reranking over a custom 36-section SLA corpus — §13 |
-| Persistence | COMPLETE | SQLite (27 tables), file-based freshness sidecars, ChromaDB vector store — §12, §14 |
-| MCP server | COMPLETE | FastMCP stdio server, 3 tools, process-isolated from the agent app — §9 |
-| UI | COMPLETE | Gradio 5-tab conversational interface with quick actions — §26 |
-| Automated evaluation | COMPLETE | 44/44 agent evals (LLM-as-judge across all 5 agents, RAGAS per-topic RAG scoring, human-baseline calibration) — §20 |
-| Unit / smoke tests | COMPLETE | 40/40 tests — MCP tool registration, feature engineering, Pydantic schemas, RAG/vectorstore checks — §19 |
-| Security guardrails | COMPLETE | Prompt-injection resistance, PII handling, tool-call scoping — §16 |
-| Observability | COMPLETE | Structured logging, RAG retrieval timing, audit sidecars — §15 |
+| ML prediction pipeline | COMPLETE | Two-stage Random Forest (89.6% accuracy / 81.5% recall Stage 1; 63.7% accuracy Stage 2), trained and evaluated — Section 20.1 |
+| Agent orchestration | COMPLETE | 5-agent pipeline (Predict / Diagnose / Simulate / Recommend / Email) + Master Orchestrator, OpenAI Agents SDK, plan-confirmation gate — Section 5, Section 9-10 |
+| RAG pipeline | COMPLETE | ChromaDB + hybrid pre-filter + cross-encoder reranking over a custom 36-section SLA corpus — Section 13 |
+| Persistence | COMPLETE | SQLite (27 tables), file-based freshness sidecars, ChromaDB vector store — Section 12, Section 14 |
+| MCP server | COMPLETE | FastMCP stdio server, 3 tools, process-isolated from the agent app — Section 9 |
+| UI | COMPLETE | Gradio 5-tab conversational interface with quick actions — Section 26 |
+| Automated evaluation | COMPLETE | 44/44 agent evals (LLM-as-judge across all 5 agents, RAGAS per-topic RAG scoring, human-baseline calibration) — Section 20 |
+| Unit / smoke tests | COMPLETE | 40/40 tests — MCP tool registration, feature engineering, Pydantic schemas, RAG/vectorstore checks — Section 19 |
+| Security guardrails | COMPLETE | Prompt-injection resistance, PII handling, tool-call scoping — Section 16 |
+| Observability | COMPLETE | Structured logging, RAG retrieval timing, audit sidecars — Section 15 |
 
 **What this baseline demonstrates:** a working multi-agent GenAI system that predicts delivery delays, diagnoses root causes, simulates what-if scenarios, generates SLA-grounded recommendations via RAG, and drafts customer communications — with automated evaluation proving output *quality*, not just that the system runs.
 
-**What it deliberately does not yet include** is detailed in §24 (Known Limitations), with the longer-term production roadmap in §25 (Potential Future Extensions) — most notably: synthetic rather than live data, batch rather than streaming processing, and a single-user, demonstration-grade deployment (SQLite/Gradio rather than production infrastructure).
+**What it deliberately does not yet include** is detailed in Section 24 (Known Limitations), with the longer-term production roadmap in Section 25 (Potential Future Extensions) — most notably: synthetic rather than live data, batch rather than streaming processing, and a single-user, demonstration-grade deployment (SQLite/Gradio rather than production infrastructure).
 
 ---
 ---
@@ -1204,7 +1204,7 @@ This baseline (**Version 1**) is fully functional end-to-end — every layer bel
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
-This is a longer-term production roadmap, not a specific plan for the next submission milestone — the baseline above (§23) is the current scope; the items below are what a production deployment beyond this course would require.
+This is a longer-term production roadmap, not a specific plan for the next submission milestone — the baseline above (Section 23) is the current scope; the items below are what a production deployment beyond this course would require.
 
 | **Phase**           | **Planned Enhancements**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

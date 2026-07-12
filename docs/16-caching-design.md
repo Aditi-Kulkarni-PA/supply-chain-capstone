@@ -186,7 +186,7 @@ if len(_response_cache) >= _RESPONSE_CACHE_MAX_SIZE:
 
 ### Why Not a Response Cache at the RAG Level?
 
-The RAG retrieval cache (§2) caches only the SLA chunks returned to the Recommend agent, not the final recommendation. This is intentional: the Recommend agent synthesises those chunks with live SQLite statistics, so the recommendation text varies even when the SLA chunks are identical. The response cache (this section) operates at the full pipeline level and correctly invalidates when SQLite data changes (via sidecar mtime), making it safe to cache the complete output including recommendations.
+The RAG retrieval cache (Section 2) caches only the SLA chunks returned to the Recommend agent, not the final recommendation. This is intentional: the Recommend agent synthesises those chunks with live SQLite statistics, so the recommendation text varies even when the SLA chunks are identical. The response cache (this section) operates at the full pipeline level and correctly invalidates when SQLite data changes (via sidecar mtime), making it safe to cache the complete output including recommendations.
 
 ---
 

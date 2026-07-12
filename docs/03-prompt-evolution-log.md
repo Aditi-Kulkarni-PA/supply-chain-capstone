@@ -264,7 +264,7 @@ The `diagnosis_summary` was still thin on root cause reasoning because the agent
 - weather_severity: clear=0, hot/cold=1, rainy/foggy=2, stormy=3
 - mode_urgency: standard=0, two_day=1, next_day=2, same_day=3
 
-_(Note: several of these glossary definitions were later found to be inconsistent with `feature_engineering_4.py` — e.g. `schedule_risk` is actually `weather_severity × mode_urgency`. Corrected across all prompts and design docs in Iteration 8; see `docs/23` §12.)_
+_(Note: several of these glossary definitions were later found to be inconsistent with `feature_engineering_4.py` — e.g. `schedule_risk` is actually `weather_severity × mode_urgency`. Corrected across all prompts and design docs in Iteration 8; see `docs/23` Section 12.)_
 ```
 
 With these definitions in context, the Root Cause Analysis section began citing compound explanations (e.g. *"Same-day mode combined with stormy weather hits both schedule_risk and weather_severity simultaneously — the pattern_type 'mode_weather' at critical risk level confirms this as the primary driver"*) rather than surface-level observations.
@@ -332,7 +332,7 @@ The prompt was updated with explicit instructions on how to use this context:
 ```
 For each recommendation:
 - Fill sla_reference with a direct quote or specific citation from the SLA context
-  (e.g. "SLA §3.2: Express delivery target 95% on-time, penalty: ₹500/order above 5% delay rate")
+  (e.g. "SLA Section 3.2: Express delivery target 95% on-time, penalty: ₹500/order above 5% delay rate")
 - Weave SLA references into action_desc — explain how the recommendation addresses or mitigates an SLA violation
 - If a retrieved SLA section mentions a penalty amount, escalation tier, or improvement priority, you MUST include it
 ```
