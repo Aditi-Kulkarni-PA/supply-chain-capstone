@@ -3,35 +3,35 @@
 **IIIT Bangalore / upGrad — Post Graduate Diploma in ML & AI — Capstone Project**  
 **Author:** Aditi Kulkarni
 
-> **Final Submission: Version 2** This is the end-to-end functional, modular, reproducible system described in Section-23 [Current Implementation Status](#23-current-implementation-status). It is not a production-grade final version — see Section-24 [Known Limitations](#24-known-limitations) for what's out of scope at this stage, and Section-25 [Potential Future Extensions](#25-potential-future-extensions) for the longer-term production roadmap.
+> **Baseline Submission: Version 1** This is the baseline version which includes end-to-end functional, modular, reproducible system described in Section-1 [Current Implementation Status](#1-current-implementation-status). It is not a production-grade final version — see Section-24 [Known Limitations](#24-known-limitations) for what's out of scope at this stage, and Section-25 [Potential Future Extensions](#25-potential-future-extensions) for the longer-term production roadmap.
 
 ---
 
 ## Table of Contents
 
-1. [Problem Statement](#1-problem-statement)
-2. [Why Multi-Agentic AI? — Problem Fit Justification](#2-why-multi-agentic-ai--problem-fit-justification)
-3. [Data Provenance](#3-data-provenance)
-4. [System Overview](#4-system-overview)
-5. [Architecture](#5-architecture)
-6. [Tech Stack](#6-tech-stack)
-7. [Project Structure](#7-project-structure)
-8. [Prompt Engineering](#8-prompt-engineering)
-9. [MCP Server](#9-mcp-server)
-10. [Agent Tools](#10-agent-tools)
-11. [LLM Model Selection](#11-llm-model-selection)
-12. [SQLite Database](#12-sqlite-database)
-13. [ChromaDB / RAG Pipeline](#13-chromadb--rag-pipeline)
-14. [Caching](#14-caching)
-15. [Observability & Logging](#15-observability--logging)
-16. [Security Guardrails](#16-security-guardrails)
-17. [Documentation Index](#17-documentation-index)
-18. [Setup](#18-setup)
-19. [Testing](#19-testing)
-20. [Evaluation](#20-evaluation)
-21. [Strategic Deductions and Business Impact](#21-strategic-deductions-and-business-impact)
-22. [Key Learnings](#22-key-learnings)
-23. [Current Implementation Status](#23-current-implementation-status)
+1. [Current Implementation Status](#1-current-implementation-status)
+2. [Problem Statement](#2-problem-statement)
+3. [Why Multi-Agentic AI? — Problem Fit Justification](#3-why-multi-agentic-ai--problem-fit-justification)
+4. [Data Provenance](#4-data-provenance)
+5. [System Overview](#5-system-overview)
+6. [Architecture](#6-architecture)
+7. [Tech Stack](#7-tech-stack)
+8. [Project Structure](#8-project-structure)
+9. [Prompt Engineering](#9-prompt-engineering)
+10. [MCP Server](#10-mcp-server)
+11. [Agent Tools](#11-agent-tools)
+12. [LLM Model Selection](#12-llm-model-selection)
+13. [SQLite Database](#13-sqlite-database)
+14. [ChromaDB / RAG Pipeline](#14-chromadb--rag-pipeline)
+15. [Caching](#15-caching)
+16. [Observability & Logging](#16-observability--logging)
+17. [Security Guardrails](#17-security-guardrails)
+18. [Documentation Index](#18-documentation-index)
+19. [Setup](#19-setup)
+20. [Testing](#20-testing)
+21. [Evaluation](#21-evaluation)
+22. [Strategic Deductions and Business Impact](#22-strategic-deductions-and-business-impact)
+23. [Key Learnings](#23-key-learnings)
 24. [Known Limitations](#24-known-limitations)
 25. [Potential Future Extensions](#25-potential-future-extensions)
 26. [Gradio UI App Screenshots](#26-gradio-ui-app-screenshots)
@@ -40,7 +40,36 @@
 ---
 ---
 
-## 1. Problem Statement
+## 1. Current Implementation Status
+
+<sub>[↑ Back to TOC](#table-of-contents)</sub>
+
+This baseline (**Version 1**) is fully functional end-to-end — every layer below is implemented, running, and covered by automated tests/evals as of this submission.
+
+| Layer | Status | Evidence |
+|---|---|---|
+| Data extraction and analysis | COMPLETE | 25,000-record Kaggle dataset ingested, cleaned, and explored (EDA); 8 derived features engineered — Section 5 |
+| ML prediction pipeline | COMPLETE | Two-stage Random Forest (89.6% accuracy / 81.5% recall Stage 1; 63.7% accuracy Stage 2), trained and evaluated — Section 5, Section 21.1 |
+| Agent orchestration | COMPLETE | 5-agent pipeline (Predict / Diagnose / Simulate / Recommend / Email) + Master Orchestrator, OpenAI Agents SDK, plan-confirmation gate — Section 5, Section 6 |
+| Agent tools | COMPLETE | 3 MCP tools (predict/diagnose/simulate, process-isolated) + 3 function tools (recommend, email, RAG retrieval) — Section 11 |
+| RAG pipeline | COMPLETE | ChromaDB + hybrid pre-filter + cross-encoder reranking over a custom 36-section SLA corpus — Section 14 |
+| Persistence | COMPLETE | SQLite (27 tables), file-based freshness sidecars, ChromaDB vector store — Section 13, Section 14, Section 15 |
+| MCP server | COMPLETE | FastMCP stdio server, 3 tools, process-isolated from the agent app — Section 10 |
+| UI | COMPLETE | Gradio 5-tab conversational interface with quick actions — Section 5, Section 6, Section 26 |
+| Caching | COMPLETE | Sidecar freshness detection (1h TTL) + RAG retrieval cache (SHA-256 key, 200-entry eviction) — Section 15 |
+| Automated evaluation | COMPLETE | 44/44 agent evals (LLM-as-judge across all 5 agents, RAGAS per-topic RAG scoring, human-baseline calibration) — Section 21 |
+| Unit / smoke tests | COMPLETE | 40/40 tests — MCP tool registration, feature engineering, Pydantic schemas, RAG/vectorstore checks — Section 20 |
+| Security guardrails | COMPLETE | Prompt-injection resistance, PII handling, tool-call scoping — Section 17 |
+| Observability | COMPLETE | Structured logging, RAG retrieval timing, audit sidecars — Section 16 |
+
+**What this baseline demonstrates:** a working multi-agent GenAI system that predicts delivery delays, diagnoses root causes, simulates what-if scenarios, generates SLA-grounded recommendations via RAG, and drafts customer communications — with automated evaluation proving output *quality*, not just that the system runs.
+
+**What it deliberately does not yet include** is detailed in Section 24 (Known Limitations), with the longer-term production roadmap in Section 25 (Potential Future Extensions) — most notably: synthetic rather than live data, batch rather than streaming processing, and a single-user, demonstration-grade deployment (SQLite/Gradio rather than production infrastructure).
+
+---
+---
+
+## 2. Problem Statement
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -49,7 +78,7 @@ Last-mile delivery is the most expensive and delay-prone segment of the supply c
 ---
 ---
 
-## 2. Why Multi-Agentic AI? — Problem Fit Justification
+## 3. Why Multi-Agentic AI? — Problem Fit Justification
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -78,7 +107,7 @@ The system avoids the common pitfall of forcing AI where simpler tools suffice. 
 ---
 ---
 
-## 3. Data Provenance
+## 4. Data Provenance
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -110,7 +139,7 @@ The primary training dataset contains 25,000 historical delivery records represe
 ---
 ---
 
-## 4. System Overview
+## 5. System Overview
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -152,7 +181,7 @@ Taken together, the system enables logistics operations teams to query a convers
 ---
 ---
 
-## 5. Architecture
+## 6. Architecture
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -248,7 +277,7 @@ Taken together, the system enables logistics operations teams to query a convers
 ---
 ---
 
-## 6. Tech Stack
+## 7. Tech Stack
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -279,7 +308,7 @@ Taken together, the system enables logistics operations teams to query a convers
 ---
 ---
 
-## 7. Project Structure
+## 8. Project Structure
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -415,7 +444,7 @@ Taken together, the system enables logistics operations teams to query a convers
 ---
 ---
 
-## 8. Prompt Engineering
+## 9. Prompt Engineering
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -460,7 +489,7 @@ Prompt instructions are split across three composable files — `security_guardr
 ---
 ---
 
-## 9. MCP Server
+## 10. MCP Server
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -479,7 +508,7 @@ Three tools over **stdio transport** (FastMCP) expose the ML prediction pipeline
 ---
 ---
 
-## 10. Agent Tools
+## 11. Agent Tools
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -513,7 +542,7 @@ These run in-process within the `supply_chain_delivery_app/` module and are regi
 ---
 ---
 
-## 11. LLM Model Selection
+## 12. LLM Model Selection
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -534,7 +563,7 @@ GPT-4.1-mini and GPT-5.1 were both evaluated before settling on the current two-
 ---
 ---
 
-## 12. SQLite Database
+## 13. SQLite Database
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -559,7 +588,7 @@ The 12 summary types cover: 6 single-dimension breakdowns (partner, package, veh
 ---
 ---
 
-## 13. ChromaDB / RAG Pipeline
+## 14. ChromaDB / RAG Pipeline
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -587,7 +616,7 @@ The `recommend_actions` tool output is summarised into a focused query before em
 ---
 ---
 
-## 14. Caching
+## 15. Caching
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -607,7 +636,7 @@ Four independent caching mechanisms prevent redundant work at different layers:
 ---
 ---
 
-## 15. Observability & Logging
+## 16. Observability & Logging
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -629,7 +658,7 @@ RAG retrieval emits 12 structured events with `duration_ms` on every call (e.g. 
 ---
 ---
 
-## 16. Security Guardrails
+## 17. Security Guardrails
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -681,7 +710,7 @@ Structured agents are configured with `agent as a tool` using OpenAI Agent SDK.
 ---
 ---
 
-## 17. Documentation Index
+## 18. Documentation Index
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -712,11 +741,11 @@ Structured agents are configured with `agent as a tool` using OpenAI Agent SDK.
 ---
 ---
 
-## 18. Setup
+## 19. Setup
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
-### 18.1. Clone and install dependencies
+### 19.1. Clone and install dependencies
 
 ```bash
 # Install uv if not already installed
@@ -727,7 +756,7 @@ cd 0_supply_chain_capstone
 uv sync                  # creates .venv and installs all pinned dependencies
 ```
 
-### 18.2. Configure environment
+### 19.2. Configure environment
 
 ```bash
 cp .env.example .env
@@ -780,14 +809,14 @@ Required `.env` variables:
 |---|---|---|
 | `OPENAI_AGENTS_DISABLE_TRACING` | `1` | Set to `1` to disable SDK tracing (recommended — 10 KB trace payload limit causes errors with large prediction outputs) |
 
-### 18.3. Train the ML models (first run only)
+### 19.3. Train the ML models (first run only)
 
 Open and run `prediction_pipeline/notebooks/train_predict_delay_model.ipynb` end-to-end. This produces:
 - `prediction_pipeline/models/best_classification_random_forest.pkl` (Stage 1)
 - `prediction_pipeline/models/best_severity_random_forest.pkl` (Stage 2)
 - `prediction_pipeline/db/delivery_predictions.db` (SQLite with 27 tables)
 
-### 18.4. Start the MCP prediction server
+### 19.4. Start the MCP prediction server
 
 ```bash
 # In a separate terminal, from the project root
@@ -796,7 +825,7 @@ uv run python prediction_pipeline/prediction_server.py
 
 This starts the FastMCP server (stdio transport) that exposes `predict`, `diagnose`, and `simulate` as tools to the agent layer.
 
-### 18.5. Launch the app
+### 19.5. Launch the app
 
 ```bash
 uv run python supply_chain_delivery_app/delivery_chat_app.py
@@ -807,7 +836,7 @@ Open `http://localhost:7860` in your browser.
 ---
 ---
 
-## 19. Testing
+## 20. Testing
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -844,11 +873,11 @@ uv run python -m prediction_pipeline.src.daily_predict --file prediction_pipelin
 ---
 ---
 
-## 20. Evaluation
+## 21. Evaluation
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
-### 20.1 ML Model Evaluation
+### 21.1 ML Model Evaluation
 
 Evaluation was performed in `prediction_pipeline/notebooks/train_predict_delay_model.ipynb` at training time.
 
@@ -899,7 +928,7 @@ Top 3 features together account for **>63% of model decisions**.
 
 ---
 
-### 20.2 Agent Evaluation (LLM-as-Judge)
+### 21.2 Agent Evaluation (LLM-as-Judge)
 
 All five agents were evaluated using a structured LLM-as-judge framework (GPT-5.4 as evaluator) scoring each agent output on three dimensions: **Relevance**, **Faithfulness**, and **Safety** on a 1–5 scale. Pass threshold: mean ≥ 3.0.
 
@@ -952,7 +981,7 @@ Latest reports: **[`evals/reports/`](evals/reports/)**
 
 ---
 
-### 20.3 RAG Evaluation (RAGAS)
+### 21.3 RAG Evaluation (RAGAS)
 
 The three-stage RAG pipeline (`retrieve_sla_context()`) is evaluated using RAGAS as part of the standard eval suite, scoped to the **Recommendation agent** — the only agent that retrieves anything. Predict, Diagnose, Simulate, and Email read directly from MCP tools / SQLite / deterministic Python; their equivalent grounding check is the Faithfulness dimension already in each agent's LLM-as-judge criteria.
 
@@ -984,7 +1013,7 @@ The eval report's top-level Summary section shows a dedicated RAG Evaluation (RA
 
 ---
 
-### 20.4 Human Baseline Calibration
+### 21.4 Human Baseline Calibration
 
 > **Note:** 5 agents scored at the top level. Predict and Simulate are each backed by **50 individually human-reviewed records** (averaged into their agent-level row below); Diagnose, Recommend, and Email remain single-sample. Not a full evaluation dataset.
 
@@ -1047,11 +1076,11 @@ uv run pytest evals/test_eval_human_baseline.py -v
 ---
 ---
 
-## 21. Strategic Deductions and Business Impact
+## 22. Strategic Deductions and Business Impact
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
-### 21.1 Baseline Delay Profile
+### 22.1 Baseline Delay Profile
 
 Analysis of **25,000 historical delivery records** shows an overall **27% delay rate**, meaning approximately **1 in 4 shipments** misses its committed delivery window. This exposes logistics operations to SLA penalties, partner deductions, and customer dissatisfaction.
 
@@ -1060,7 +1089,7 @@ The strongest contributors to severe delays (>6 hours) are:
 - Same-Day delivery mode over long distances
 - Unrealistic delivery schedules
 
-### 21.2 ML Prediction – Early Warning Value
+### 22.2 ML Prediction – Early Warning Value
 
 The two-stage Random Forest pipeline enables **proactive intervention** instead of reactive firefighting.
 
@@ -1083,7 +1112,7 @@ The two-stage Random Forest pipeline enables **proactive intervention** instead 
 | 4 | `vehicle_load_strain` | **10.0%** | Overloaded vehicles are more likely to miss delivery windows. |
 | 5 | `carrier_avg_schedule` | **8.0%** | Some logistics partners consistently operate with overly aggressive schedules. |
 
-### 21.3 Severity Triage
+### 22.3 Severity Triage
 
 Stage 2 predicts delay severity with **63.7% accuracy**, classifying delayed shipments into:
 
@@ -1098,7 +1127,7 @@ This enables:
 - Severity-weighted partner performance measurement
 - Reduced customer alert fatigue
 
-### 21.4 Multi-Agent Decision Support
+### 22.4 Multi-Agent Decision Support
 
 Without the system, handling a delivery escalation typically requires:
 
@@ -1124,7 +1153,7 @@ For **50–100 daily escalations**, this saves approximately:
 - **1,500–3,000 analyst minutes/day**
 - Approximately **0.5–1.5 FTE**
 
-### 21.5 RAG Grounding
+### 22.5 RAG Grounding
 
 Recommendations are generated using a three-stage RAG pipeline:
 ```
@@ -1133,7 +1162,7 @@ ChromaDB >> Hybrid Retrieval >> Cross-Encoder Re-ranking
 
 Each recommendation references the relevant SLA clause together with the current operational metric and required threshold.
 
-#### RAG Evaluation (RAGAS, per-topic sampling — see Section 20.3)
+#### RAG Evaluation (RAGAS, per-topic sampling — see Section 21.3)
 
 | Metric | Latest run | Observed range across runs |
 |---------|------:|------:|
@@ -1142,9 +1171,9 @@ Each recommendation references the relevant SLA clause together with the current
 | Context Precision (context relevance) | **0.875** | 0.82 to 0.91 |
 | Hallucination Rate (derived) | **0.017** | 0.02 to 0.24 |
 
-All four metrics pass their thresholds on every run, indicating grounded, on-topic, low-hallucination retrieval. Scored per distinct SLA topic cited in the recommendations (n≈6 samples/run) — see Section 20.3 for the design and per-topic breakdown.
+All four metrics pass their thresholds on every run, indicating grounded, on-topic, low-hallucination retrieval. Scored per distinct SLA topic cited in the recommendations (n≈6 samples/run) — see Section 21.3 for the design and per-topic breakdown.
 
-### 21.6 Consolidated Business Impact
+### 22.6 Consolidated Business Impact
 
 | Dimension | Metric | Business Value |
 |-----------|--------|----------------|
@@ -1158,7 +1187,7 @@ All four metrics pass their thresholds on every run, indicating grounded, on-top
 ---
 ---
 
-## 22. Key Learnings
+## 23. Key Learnings
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
@@ -1195,32 +1224,6 @@ All four metrics pass their thresholds on every run, indicating grounded, on-top
 ---
 ---
 
-## 23. Current Implementation Status
-
-<sub>[↑ Back to TOC](#table-of-contents)</sub>
-
-This baseline (**Version 1**) is fully functional end-to-end — every layer below is implemented, running, and covered by automated tests/evals as of this submission.
-
-| Layer | Status | Evidence |
-|---|---|---|
-| ML prediction pipeline | COMPLETE | Two-stage Random Forest (89.6% accuracy / 81.5% recall Stage 1; 63.7% accuracy Stage 2), trained and evaluated — Section 20.1 |
-| Agent orchestration | COMPLETE | 5-agent pipeline (Predict / Diagnose / Simulate / Recommend / Email) + Master Orchestrator, OpenAI Agents SDK, plan-confirmation gate — Section 5, Section 9-10 |
-| RAG pipeline | COMPLETE | ChromaDB + hybrid pre-filter + cross-encoder reranking over a custom 36-section SLA corpus — Section 13 |
-| Persistence | COMPLETE | SQLite (27 tables), file-based freshness sidecars, ChromaDB vector store — Section 12, Section 14 |
-| MCP server | COMPLETE | FastMCP stdio server, 3 tools, process-isolated from the agent app — Section 9 |
-| UI | COMPLETE | Gradio 5-tab conversational interface with quick actions — Section 26 |
-| Automated evaluation | COMPLETE | 44/44 agent evals (LLM-as-judge across all 5 agents, RAGAS per-topic RAG scoring, human-baseline calibration) — Section 20 |
-| Unit / smoke tests | COMPLETE | 40/40 tests — MCP tool registration, feature engineering, Pydantic schemas, RAG/vectorstore checks — Section 19 |
-| Security guardrails | COMPLETE | Prompt-injection resistance, PII handling, tool-call scoping — Section 16 |
-| Observability | COMPLETE | Structured logging, RAG retrieval timing, audit sidecars — Section 15 |
-
-**What this baseline demonstrates:** a working multi-agent GenAI system that predicts delivery delays, diagnoses root causes, simulates what-if scenarios, generates SLA-grounded recommendations via RAG, and drafts customer communications — with automated evaluation proving output *quality*, not just that the system runs.
-
-**What it deliberately does not yet include** is detailed in Section 24 (Known Limitations), with the longer-term production roadmap in Section 25 (Potential Future Extensions) — most notably: synthetic rather than live data, batch rather than streaming processing, and a single-user, demonstration-grade deployment (SQLite/Gradio rather than production infrastructure).
-
----
----
-
 ## 24. Known Limitations
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
@@ -1242,7 +1245,7 @@ This baseline (**Version 1**) is fully functional end-to-end — every layer bel
 
 <sub>[↑ Back to TOC](#table-of-contents)</sub>
 
-This is a longer-term production roadmap, not a specific plan for the next submission milestone — the baseline above (Section 23) is the current scope; the items below are what a production deployment beyond this course would require.
+This is a longer-term production roadmap, not a specific plan for the next submission milestone — the baseline above (Section 1) is the current scope; the items below are what a production deployment beyond this course would require.
 
 | **Phase**           | **Planned Enhancements**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
