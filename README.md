@@ -3,7 +3,7 @@
 **IIIT Bangalore / upGrad — Post Graduate Diploma in ML & AI — Capstone Project**  
 **Author:** Aditi Kulkarni
 
-> **Baseline Submission: Version 1** This is the baseline version which includes end-to-end functional, modular, reproducible system described in Section-1 [Current Implementation Status](#1-current-implementation-status). It is not a production-grade final version — see Section-24 [Known Limitations](#24-known-limitations) for what's out of scope at this stage, and Section-25 [Potential Future Extensions](#25-potential-future-extensions) for the longer-term production roadmap.
+> **Final Submission: Version 2** This is the final version which includes end-to-end functional, modular, reproducible system described in Section-1 [Current Implementation Status](#1-current-implementation-status). It is not a production-grade version — see Section-24 [Known Limitations](#24-known-limitations) for what's out of scope at this stage, and Section-25 [Potential Future Extensions](#25-potential-future-extensions) for the longer-term production roadmap.
 
 ---
 
