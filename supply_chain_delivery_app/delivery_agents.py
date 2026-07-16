@@ -45,7 +45,9 @@ _PREDICTION_SERVER = str(
 )
 _PYTHON = sys.executable
 
-_MCP_PARAMS = {"command": _PYTHON, "args": [_PREDICTION_SERVER]}
+# cwd pinned to the project root so relative file paths (e.g. from evals) resolve
+# the same way regardless of the directory the parent process was launched from.
+_MCP_PARAMS = {"command": _PYTHON, "args": [_PREDICTION_SERVER], "cwd": str(_APP_DIR.parent)}
 
 # The only pipeline tools agents may call via MCP. Also imported by the chat
 # app for per-tool timing logs, so the list is defined exactly once.

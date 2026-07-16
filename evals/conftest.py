@@ -35,7 +35,11 @@ RAGAS_DB = EVALS_DIR / "db" / "delivery_predictions_eval_ragas.db"
 FULL_INPUT_DIR  = APP_DIR / "input"
 # Full input file used for all agent evals — the same file the production pipeline runs on.
 # We agreed: judge + RAGAS both test the full pipeline output, not a 50-row sample.
-FULL_INPUT_FILE = FULL_INPUT_DIR / "daily_delivery_logistics_1.csv"
+# Configurable via EVAL_INPUT_FILE (path relative to PROJECT_ROOT); defaults below.
+_DEFAULT_INPUT_REL = "supply_chain_delivery_app/input/daily_delivery_logistics_1.csv"
+EVAL_INPUT_REL  = os.environ.get("EVAL_INPUT_FILE", _DEFAULT_INPUT_REL)
+FULL_INPUT_FILE = PROJECT_ROOT / EVAL_INPUT_REL          # absolute — for in-process file I/O
+FULL_INPUT_FILE_REL = Path(EVAL_INPUT_REL)               # relative — for agent prompts / reports
 
 # ── 3. Override env vars BEFORE any app imports ───────────────────────────────
 # load_dotenv in delivery_agents uses override=False, so these values survive.

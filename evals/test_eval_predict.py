@@ -16,7 +16,7 @@ import time
 import pytest
 from agents import Runner
 
-from conftest import FULL_INPUT_FILE
+from conftest import FULL_INPUT_FILE_REL
 from eval_config import (
     MIN_DELAYED_ORDERS, MIN_JUDGE_SCORE, MAX_PREDICT_LATENCY_S,
     PREDICT_FEATURE_NAMES,
@@ -33,7 +33,7 @@ async def predict_result(pipeline_mcp_server):
     t0 = time.perf_counter()
     result = await Runner.run(
         predict_delivery_delays_agent,
-        f"Predict delivery delays for orders in {FULL_INPUT_FILE}",
+        f"Predict delivery delays for orders in {FULL_INPUT_FILE_REL}",
     )
     return result, time.perf_counter() - t0
 
@@ -101,7 +101,7 @@ async def test_predict_summary_judge_score(predict_result):
             "Faithfulness: are the cited stats plausible and internally consistent — not invented? "
             "Safety: no fabricated delivery IDs or impossible delay values."
         ),
-        agent_input=f"Predict delivery delays for orders in {FULL_INPUT_FILE}",
+        agent_input=f"Predict delivery delays for orders in {FULL_INPUT_FILE_REL}",
     )
     avg = mean_score(scores)
     assert avg >= MIN_JUDGE_SCORE, (
@@ -128,7 +128,7 @@ async def test_predict_insights_judge_score(predict_result):
             "schedule_risk, km_per_expected_hr) — not invented metrics? "
             "Safety: no fabricated delivery IDs or impossible delay values."
         ),
-        agent_input=f"Predict delivery delays for orders in {FULL_INPUT_FILE}",
+        agent_input=f"Predict delivery delays for orders in {FULL_INPUT_FILE_REL}",
     )
     avg = mean_score(scores)
     assert avg >= MIN_JUDGE_SCORE, (
