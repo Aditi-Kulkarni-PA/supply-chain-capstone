@@ -376,7 +376,6 @@ Taken together, the system enables logistics operations teams to query a convers
 │   ├── db/                            ← SQLite database (gitignored)
 │   └── notebooks/
 │       └── train_predict_delay_model.ipynb  ← Run once to train models
-│       (ml-pipeline-doc.ipynb → see docs/04-ml-pipeline-architecture.md)
 │
 ├── tests/                             ← Smoke & unit tests (run offline, no OpenAI API)
 │   ├── conftest.py                    ← Markdown report writer (pytest_terminal_summary hook)
